@@ -711,7 +711,7 @@ export default function Page() {
         return;
       }
 
-      setFullLoading(true);
+      setFullLoading(true, true);
       const response = await fetch("/api/email/batch-download", {
         method: "POST",
         headers: {
@@ -742,7 +742,7 @@ export default function Page() {
       document.body.removeChild(a);
 
       setShowDownloadDialog(false);
-      setFullLoading(false);
+      setFullLoading(false, false);
     } catch (error) {
       setAlert(
         "เกิดข้อผิดพลาด",

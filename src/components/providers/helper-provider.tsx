@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { BackendClient } from "@/lib/request";
@@ -21,7 +20,7 @@ import { SectionCard } from "../section-card";
 
 interface HelperContextType {
   setAlert: ReturnType<typeof useAlertContext>;
-  setFullLoading: ReturnType<typeof useFullLoadingContext>;
+  setFullLoading: (value: boolean, useDino?: boolean) => boolean;
   backendClient: BackendClient;
   router: ReturnType<typeof useRouter>;
   userInfo: GetUserInfoResponse | undefined;
@@ -37,7 +36,8 @@ const HelperContext = createContext<() => HelperContextType>(() => {
       action: undefined | (() => void),
       canCancel: boolean,
     ) => [title, text, action, canCancel],
-    setFullLoading: (value: boolean) => value,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setFullLoading: (value: boolean, useDino: boolean = false) => value,
     backendClient: new BackendClient(
       (
         message: string,
