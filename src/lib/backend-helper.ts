@@ -14,7 +14,7 @@ export const handleError = (error: unknown) => {
     if (axios.isAxiosError(error)) {
         const status = error.response?.status ?? 500;
         const data = error.response?.data ?? { message: error.message };
-        return NextResponse.json({ code: 9999, msg: data?.error_description || "some thing went wrong" }, { status });
+        return NextResponse.json({ code: 9999, msg: data?.error_description || data?.msg || "some thing went wrong" }, { status });
     }
 
     return NextResponse.json({ code: 9999, msg: "some thing went wrong" }, { status: 400 });
