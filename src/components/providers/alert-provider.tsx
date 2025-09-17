@@ -50,7 +50,7 @@ export function AlertDialogComponent({
           )}
           {typeof action !== "undefined" && (
             <AlertDialogAction onClick={handleActionClick}>
-              Continue
+              ต่อไป
             </AlertDialogAction>
           )}
         </AlertDialogFooter>

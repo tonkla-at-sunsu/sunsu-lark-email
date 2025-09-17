@@ -11,13 +11,15 @@ const handlerError = (
         isOpen: boolean,
     ) => void,
 ): ErrorResponse => {
+    console.log(JSON.stringify(error));
+
     if (axios.isAxiosError(error)) {
         if (
             error.response &&
             error.response.data &&
             (error.response.data as { error?: unknown }).error
         ) {
-            setAlert("error", (error.response.data as { msg?: string }).msg || "Error", () => {
+            setAlert("เกิดข้อผิดพลาด", (error.response.data as { msg?: string }).msg || "Error", () => {
                 window.location.href = "/login"
             }, false);
             return {
@@ -25,8 +27,8 @@ const handlerError = (
                 msg: (error.response.data as { msg?: string }).msg || "Error",
                 error: true,
             };
-        } else {
-            setAlert("error", error.message, () => {
+        } else {            
+            setAlert("เกิดข้อผิดพลาด", error.message, () => {
                 window.location.href = "/login"
             }, false);
             return {
@@ -36,7 +38,7 @@ const handlerError = (
             };
         }
     } else {
-        setAlert("An unknown error occurred. Try again!", "error", () => {
+        setAlert("เกิดข้อผิดพลาด", "An unknown error occurred. Try again!", () => {
             window.location.href = "/"
         }, false);
         return {

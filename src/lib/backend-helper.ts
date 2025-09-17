@@ -12,9 +12,9 @@ export const getTenantAccessToken = async () => {
 
 export const handleError = (error: unknown) => {
     if (axios.isAxiosError(error)) {
-        const status = error.response?.status ?? 500;
+        const status = 400;
         const data = error.response?.data ?? { message: error.message };
-        return NextResponse.json({ code: 9999, msg: data?.error_description || data?.msg || "some thing went wrong" }, { status });
+        return NextResponse.json(data, { status });
     }
 
     return NextResponse.json({ code: 9999, msg: "some thing went wrong" }, { status: 400 });
