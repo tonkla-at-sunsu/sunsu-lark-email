@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import {
@@ -13,7 +14,8 @@ const FullLoadingContext = createContext((value: boolean) => value);
 function FullLoading() {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-[#00000050] bg-opacity-50 z-50">
-      <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+      <img src="loading.gif" alt="loading" className="w-[200px] h-[200px]"/>
+      {/* <div className="w-12 h-12 border-4 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div> */}
     </div>
   );
 }
