@@ -4,6 +4,7 @@ import { HelperProvider } from "@/components/providers/helper-provider";
 import { FullLoadingProvider } from "@/components/providers/full-loading-provider";
 import { AlertDialogProvider } from "@/components/providers/alert-provider";
 import { Kanit } from "next/font/google";
+import { Suspense } from "react";
 
 const kanit = Kanit({
   subsets: ["latin"],
@@ -22,14 +23,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${kanit.variable} antialiased`}>
-        <AlertDialogProvider>
-          <FullLoadingProvider>
-            <HelperProvider>{children}</HelperProvider>
-          </FullLoadingProvider>
-        </AlertDialogProvider>
-      </body>
-    </html>
+    <Suspense fallback={<div></div>}>
+      <html lang="en">
+        <body className={`${kanit.variable} antialiased`}>
+          <AlertDialogProvider>
+            <FullLoadingProvider>
+              <HelperProvider>{children}</HelperProvider>
+            </FullLoadingProvider>
+          </AlertDialogProvider>
+        </body>
+      </html>
+    </Suspense>
   );
 }
