@@ -10,11 +10,33 @@ import { EmailDetail, isErrorResponse } from "@/types/request";
 import { useHelperContext } from "@/components/providers/helper-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Filter, ChevronDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   idbGetItem,
   idbSetItem,
   idbCountKeysByPrefix,
   idbGetValuesByPrefix,
+  saveFilter,
+  getSavedFilters,
+  deleteSavedFilter,
+  SavedFilter,
 } from "@/lib/storage";
 
 export type EmailList = {
@@ -63,18 +85,33 @@ export default function Page() {
   const [searchOffset, setSearchOffset] = useState<number>(0);
   const [hasNextPage, setHasNextPage] = useState<boolean>(false);
   const [hasPrevPage, setHasPrevPage] = useState<boolean>(false);
+  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
+  const [showSaveFilterDialog, setShowSaveFilterDialog] =
+    useState<boolean>(false);
+  const [filterName, setFilterName] = useState<string>("");
 
   useEffect(() => {
     void fetchInitialEmails();
     void backgroundLoadLast60Days();
     void refreshCachedCount();
+    void loadSavedFilters();
     const initDefaults = () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const endStr = today.toISOString().slice(0, 10);
+      const endStr =
+        today.getFullYear() +
+        "-" +
+        String(today.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(today.getDate()).padStart(2, "0");
       const start = new Date(today);
       start.setMonth(start.getMonth() - 1);
-      const startStr = start.toISOString().slice(0, 10);
+      const startStr =
+        start.getFullYear() +
+        "-" +
+        String(start.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(start.getDate()).padStart(2, "0");
       setFilterStartDate((prev) => prev || startStr);
       setFilterEndDate((prev) => prev || endStr);
     };
@@ -367,6 +404,84 @@ export default function Page() {
     return input.map((item) => convertEmailDetailToEmailList(item));
   };
 
+  // Filter management functions
+  const loadSavedFilters = async () => {
+    if (typeof userInfo?.email === "undefined") return;
+    try {
+      const filters = await getSavedFilters(userInfo.email);
+      setSavedFilters(filters);
+    } catch (error) {
+      console.error("Error loading saved filters:", error);
+    }
+  };
+
+  const handleSaveFilter = async () => {
+    if (!filterName.trim() || typeof userInfo?.email === "undefined") return;
+
+    try {
+      await saveFilter(userInfo.email, {
+        name: filterName.trim(),
+        sender: filterSender,
+        subject: filterSubject,
+      });
+      setFilterName("");
+      setShowSaveFilterDialog(false);
+      await loadSavedFilters();
+    } catch (error) {
+      console.error("Error saving filter:", error);
+    }
+  };
+
+  const handleLoadFilter = (filter: SavedFilter) => {
+    setFilterSender(filter.sender);
+    setFilterSubject(filter.subject);
+    setShowSaveFilterDialog(false);
+    // Auto search after loading filter
+    setTimeout(() => {
+      void fetchFilteredEmails(0);
+    }, 100);
+  };
+
+  const handleDeleteFilter = async (filterId: string) => {
+    if (typeof userInfo?.email === "undefined") return;
+
+    try {
+      await deleteSavedFilter(userInfo.email, filterId);
+      await loadSavedFilters();
+    } catch (error) {
+      console.error("Error deleting filter:", error);
+    }
+  };
+
+  const handleClearFilters = () => {
+    setFilterSender("");
+    setFilterSubject("");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endStr =
+      today.getFullYear() +
+      "-" +
+      String(today.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(today.getDate()).padStart(2, "0");
+    const start = new Date(today);
+    start.setMonth(start.getMonth() - 1);
+    const startStr =
+      start.getFullYear() +
+      "-" +
+      String(start.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(start.getDate()).padStart(2, "0");
+    setFilterStartDate(startStr);
+    setFilterEndDate(endStr);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      void fetchFilteredEmails(0);
+    }
+  };
+
   return (
     <SidebarProvider
       style={
@@ -391,6 +506,7 @@ export default function Page() {
                     placeholder="กรองด้วยอีเมลผู้ส่ง"
                     value={filterSender}
                     onChange={(e) => setFilterSender(e.target.value)}
+                    onKeyDown={handleKeyDown}
                   />
                 </div>
                 <div className="flex-1">
@@ -401,6 +517,7 @@ export default function Page() {
                     placeholder="กรองด้วยหัวข้ออีเมล"
                     value={filterSubject}
                     onChange={(e) => setFilterSubject(e.target.value)}
+                    onKeyDown={handleKeyDown}
                   />
                 </div>
                 <div className="flex-1">
@@ -417,6 +534,7 @@ export default function Page() {
                       setFilterStartDate(start);
                       setFilterEndDate(end);
                     }}
+                    onKeyDown={handleKeyDown}
                   />
                 </div>
                 <div className="flex-1">
@@ -427,7 +545,6 @@ export default function Page() {
                     type="date"
                     value={filterEndDate}
                     min={filterStartDate || undefined}
-                    max={new Date().toISOString().slice(0, 10)}
                     onChange={(e) => {
                       const raw = e.target.value;
                       const { start, end } = clampDateRange(
@@ -437,17 +554,98 @@ export default function Page() {
                       setFilterStartDate(start);
                       setFilterEndDate(end);
                     }}
+                    onKeyDown={handleKeyDown}
                   />
                 </div>
-                <div className="pt-2 md:pt-0">
+                <div className="pt-2 md:pt-0 flex gap-2">
                   <Button
                     onClick={() => void fetchFilteredEmails(0)}
                     disabled={isSearching}
+                    className="hover:shadow-md transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isSearching ? "กำลังค้นหา..." : "ค้นหา"}
                   </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="transition-colors duration-200 cursor-pointer"
+                      >
+                        <Filter className="w-4 h-4 mr-2" />
+                        ตัวกรอง
+                        <ChevronDown className="w-4 h-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      {savedFilters.length > 0 ? (
+                        savedFilters.map((filter) => (
+                          <div
+                            key={filter.id}
+                            className="flex items-center justify-between"
+                          >
+                            <DropdownMenuItem
+                              onClick={() => handleLoadFilter(filter)}
+                              className="cursor-pointer flex-1"
+                            >
+                              {filter.name}
+                            </DropdownMenuItem>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                >
+                                  ×
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>ลบตัวกรอง</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    คุณแน่ใจหรือไม่ที่จะลบตัวกรอง {filter.name}?
+                                    <br />
+                                    การกระทำนี้ไม่สามารถย้อนกลับได้
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() =>
+                                      handleDeleteFilter(filter.id)
+                                    }
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    ลบ
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        ))
+                      ) : (
+                        <DropdownMenuItem disabled>
+                          ไม่มีตัวกรองที่บันทึกไว้
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={handleClearFilters}
+                        className="cursor-pointer text-red-600 hover:text-red-800 hover:bg-red-50"
+                      >
+                        เคลียร์ตัวกรองทั้งหมด
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setShowSaveFilterDialog(true)}
+                        disabled={!filterSender && !filterSubject}
+                        className="cursor-pointer"
+                      >
+                        บันทึกตัวกรองใหม่
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
+
               <div className="flex justify-between items-center">
                 <Button
                   variant="outline"
@@ -459,6 +657,7 @@ export default function Page() {
                     }
                   }}
                   disabled={!hasPrevPage || isSearching}
+                  className="hover:bg-gray-50 hover:border-gray-400 transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Previous
                 </Button>
@@ -475,13 +674,14 @@ export default function Page() {
                     }
                   }}
                   disabled={!hasNextPage || isSearching}
+                  className="hover:bg-gray-50 hover:border-gray-400 transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Next
                 </Button>
               </div>
               <div className="md:ml-auto text-xs text-gray-500 md:pt-0">
                 {isBackgroundLoading ? (
-                  <span>Syncing {cachedCount} email..</span>
+                  <span>Syncing {cachedCount} email</span>
                 ) : (
                   <span>All Data Sync</span>
                 )}
@@ -495,6 +695,52 @@ export default function Page() {
           </div>
         </div>
       </SidebarInset>
+
+      {/* Save Filter Dialog */}
+      <AlertDialog
+        open={showSaveFilterDialog}
+        onOpenChange={setShowSaveFilterDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>บันทึก Filter</AlertDialogTitle>
+            <AlertDialogDescription>
+              ตั้งชื่อสำหรับ filter นี้เพื่อใช้ในครั้งต่อไป
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Input
+              placeholder="ชื่อ Filter (เช่น: อีเมลจากบริษัท ABC)"
+              value={filterName}
+              onChange={(e) => setFilterName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  void handleSaveFilter();
+                }
+              }}
+            />
+            <div className="mt-2 text-sm text-gray-600">
+              <div>ผู้ส่ง: {filterSender || "(ไม่ระบุ)"}</div>
+              <div>หัวข้อ: {filterSubject || "(ไม่ระบุ)"}</div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setShowSaveFilterDialog(false)}
+              className="hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+            >
+              ยกเลิก
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSaveFilter}
+              disabled={!filterName.trim()}
+              className="hover:shadow-md transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              บันทึก
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SidebarProvider>
   );
 }

@@ -153,3 +153,64 @@ export const idbGetValuesByPrefix = async (prefix: string): Promise<Array<{ key:
         return [];
     }
 };
+
+// Filter management types
+export type SavedFilter = {
+    id: string;
+    name: string;
+    sender: string;
+    subject: string;
+    createdAt: string;
+};
+
+// Filter storage functions
+export const saveFilter = async (userEmail: string, filter: Omit<SavedFilter, 'id' | 'createdAt'>): Promise<string> => {
+    const id = `filter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const savedFilter: SavedFilter = {
+        ...filter,
+        id,
+        createdAt: new Date().toISOString(),
+    };
+
+    const key = `saved_filter:${userEmail}:${id}`;
+    await idbSetItem(key, JSON.stringify(savedFilter));
+    return id;
+};
+
+export const getSavedFilters = async (userEmail: string): Promise<SavedFilter[]> => {
+    const prefix = `saved_filter:${userEmail}:`;
+    const entries = await idbGetValuesByPrefix(prefix);
+    const filters: SavedFilter[] = [];
+
+    for (const entry of entries) {
+        try {
+            const filter = JSON.parse(entry.value) as SavedFilter;
+            filters.push(filter);
+        } catch (e) {
+            console.error("Error parsing saved filter:", e);
+        }
+    }
+
+    // Sort by creation date (newest first)
+    return filters.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+};
+
+export const deleteSavedFilter = async (userEmail: string, filterId: string): Promise<void> => {
+    const key = `saved_filter:${userEmail}:${filterId}`;
+    await idbRemoveItem(key);
+};
+
+export const updateSavedFilter = async (userEmail: string, filterId: string, filter: Omit<SavedFilter, 'id' | 'createdAt'>): Promise<void> => {
+    const key = `saved_filter:${userEmail}:${filterId}`;
+    const existingFilter = await idbGetItem(key);
+
+    if (existingFilter) {
+        const parsed = JSON.parse(existingFilter) as SavedFilter;
+        const updatedFilter: SavedFilter = {
+            ...filter,
+            id: filterId,
+            createdAt: parsed.createdAt, // Keep original creation date
+        };
+        await idbSetItem(key, JSON.stringify(updatedFilter));
+    }
+};
