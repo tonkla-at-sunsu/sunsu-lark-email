@@ -81,7 +81,6 @@ export function DataTable<TData, TValue>({
     enableRowSelection: true,
     onRowSelectionChange: (updater) => {
       setRowSelection(updater);
-      // Call onSelectionChange with selected rows
       if (onSelectionChange) {
         const newSelection =
           typeof updater === "function" ? updater(rowSelection) : updater;

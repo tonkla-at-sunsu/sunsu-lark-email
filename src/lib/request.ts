@@ -1,5 +1,5 @@
 import axios from "axios";
-import { ErrorResponse, GetEmailDetailResponse, GetEmailListResponse, GetUserInfoResponse } from "@/types/request";
+import { ErrorResponse, GetEmailDetailResponse, GetEmailListFolder, GetEmailListResponse, GetUserInfoResponse } from "@/types/request";
 import { idbGetItem, idbSetItem } from "@/lib/storage";
 
 const handlerError = (
@@ -139,6 +139,15 @@ export class BackendClient {
                 attachmentQuery += `&attachment_ids=${attachmentId}`
             }
             window.open(`/api/email/attachment?email=${email}&message_id=${messageId}${attachmentQuery}`, "_blank")
+        } catch (e) {
+            return handlerError(e, this.setAlert)
+        }
+    }
+
+    getEmailListFolder = async (email: string): Promise<GetEmailListFolder | ErrorResponse> => {
+        try {
+            const response = await axios.get(`/api/email/list-folder?email=${email}`)
+            return response.data
         } catch (e) {
             return handlerError(e, this.setAlert)
         }

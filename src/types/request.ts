@@ -116,3 +116,22 @@ export interface AttachmentUrl {
     attachment_id: string;
     download_url: string;
 }
+
+export interface GetEmailListFolder {
+    code: number;
+    msg: string;
+    data: DataEmailList;
+}
+
+export interface DataEmailList {
+    items: Folder[]
+}
+
+export interface Folder {
+    id: string;
+    name: string;
+    parent_folder_id: string;
+    folder_type: number;
+    unread_message_count: number;
+    unread_thread_count: number;
+}

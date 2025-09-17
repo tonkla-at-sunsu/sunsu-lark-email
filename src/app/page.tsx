@@ -6,7 +6,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { DataTable } from "./DataTable";
 import { ColumnDef } from "@tanstack/react-table";
 import { useEffect, useState } from "react";
-import { EmailDetail, isErrorResponse } from "@/types/request";
+import { EmailDetail, isErrorResponse, Folder } from "@/types/request";
 import { useHelperContext } from "@/components/providers/helper-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -107,12 +114,24 @@ export default function Page() {
   const [fileCountByExtension, setFileCountByExtension] = useState<
     Record<string, number>
   >({});
+  const [availableFolders, setAvailableFolders] = useState<Folder[]>([
+    {
+      id: "INBOX",
+      name: "INBOX",
+      parent_folder_id: "",
+      folder_type: 0,
+      unread_message_count: 0,
+      unread_thread_count: 0,
+    },
+  ]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>("INBOX");
 
   useEffect(() => {
     void fetchInitialEmails();
     void backgroundLoadLast60Days();
     void refreshCachedCount();
     void loadSavedFilters();
+    void fetchFolders();
     const initDefaults = () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -236,17 +255,39 @@ export default function Page() {
     setCachedCount(n);
   };
 
+  const fetchFolders = async () => {
+    if (typeof userInfo?.email === "undefined") return;
+    try {
+      const response = await backendClient.getEmailListFolder(userInfo.email);
+      if (isErrorResponse(response)) {
+        return;
+      }
+      setAvailableFolders([
+        {
+          id: "INBOX",
+          name: "INBOX",
+          parent_folder_id: "",
+          folder_type: 0,
+          unread_message_count: 0,
+          unread_thread_count: 0,
+        },
+        ...(response.data?.items || []),
+      ]);
+    } catch (error) {
+      console.error("Error fetching folders:", error);
+    }
+  };
+
   const fetchInitialEmails = async (pageToken = "") => {
     if (typeof userInfo?.email === "undefined") {
       return;
     }
     setFullLoading(true);
     try {
-      const folderId = "INBOX";
       const response = await backendClient.getEmailList(
         userInfo?.email ?? "",
         20,
-        folderId,
+        selectedFolderId,
         pageToken,
       );
       if (isErrorResponse(response)) {
@@ -416,6 +457,39 @@ export default function Page() {
         setEmailDetails([]);
         return;
       }
+
+      if (selectedFolderId !== "INBOX") {
+        const response = await backendClient.getEmailList(
+          userInfo?.email ?? "",
+          20,
+          selectedFolderId,
+          offset > 0 ? apiPageToken : "",
+        );
+        if (isErrorResponse(response)) {
+          return;
+        }
+        const messageIds = response.data.items;
+        const emailDetailList: EmailDetail[] = [];
+        for (let index = 0; index < messageIds.length; index++) {
+          const emailDetail = await backendClient.getEmailDetail(
+            userInfo?.email ?? "",
+            messageIds[index],
+          );
+          if (isErrorResponse(emailDetail)) {
+            continue;
+          }
+          emailDetailList.push(emailDetail.data.message);
+        }
+
+        const filtered = emailDetailList.filter((d) => matchesFilter(d));
+        setEmailDetails(filtered);
+        setApiPageToken(response.data.page_token || "");
+        setHasNextPage(response.data.has_more || false);
+        setHasPrevPage(offset > 0);
+        setIsSearchMode(true);
+        return;
+      }
+
       const prefix = `email_detail:${userInfo.email}:`;
       const entries = await idbGetValuesByPrefix(prefix);
       const details: EmailDetail[] = [];
@@ -699,6 +773,34 @@ export default function Page() {
               <div className="flex flex-col gap-2 md:flex-row md:items-end">
                 <div className="flex-1">
                   <label className="mb-1 block text-sm font-medium">
+                    โฟลเดอร์
+                  </label>
+                  <Select
+                    value={selectedFolderId}
+                    onValueChange={(value) => {
+                      setSelectedFolderId(value);
+                      // Clear filters when changing folder
+                      if (value !== "INBOX") {
+                        setFilterSender("");
+                        setFilterSubject("");
+                      }
+                      void fetchInitialEmails("");
+                    }}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="เลือกโฟลเดอร์" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableFolders.map((folder) => (
+                        <SelectItem key={folder.id} value={folder.id}>
+                          {folder.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 block text-sm font-medium">
                     ผู้ส่ง
                   </label>
                   <Input
@@ -706,6 +808,7 @@ export default function Page() {
                     value={filterSender}
                     onChange={(e) => setFilterSender(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    disabled={selectedFolderId !== "INBOX"}
                   />
                 </div>
                 <div className="flex-1">
@@ -717,6 +820,7 @@ export default function Page() {
                     value={filterSubject}
                     onChange={(e) => setFilterSubject(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    disabled={selectedFolderId !== "INBOX"}
                   />
                 </div>
                 <div className="flex-1">
@@ -734,6 +838,7 @@ export default function Page() {
                       setFilterEndDate(end);
                     }}
                     onKeyDown={handleKeyDown}
+                    disabled={selectedFolderId !== "INBOX"}
                   />
                 </div>
                 <div className="flex-1">
@@ -754,12 +859,12 @@ export default function Page() {
                       setFilterEndDate(end);
                     }}
                     onKeyDown={handleKeyDown}
+                    disabled={selectedFolderId !== "INBOX"}
                   />
                 </div>
                 <div className="pt-2 md:pt-0 flex gap-2">
                   <Button
                     onClick={() => void fetchFilteredEmails(0)}
-                    disabled={isSearching}
                     className="hover:shadow-md transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isSearching ? "กำลังค้นหา..." : "ค้นหา"}
@@ -779,7 +884,8 @@ export default function Page() {
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="outline"
-                        className="transition-colors duration-200 cursor-pointer"
+                        disabled={selectedFolderId !== "INBOX"}
+                        className="transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <Filter className="w-4 h-4 mr-2" />
                         ตัวกรอง
@@ -891,11 +997,13 @@ export default function Page() {
               </div>
               <div className="md:ml-auto text-xs text-gray-500 md:pt-0">
                 {isBackgroundLoading ? (
-                  <span>Syncing {cachedCount} email</span>
+                  <span>Syncing {cachedCount.toLocaleString()} email</span>
                 ) : isBackgroundLoadingInOtherTab ? (
                   <span>Syncing in another tab</span>
                 ) : (
-                  <span>All Data Sync</span>
+                  <span>
+                    All Data Sync ({cachedCount.toLocaleString()} email)
+                  </span>
                 )}
               </div>
               <DataTable
