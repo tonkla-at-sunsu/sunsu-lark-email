@@ -10,11 +10,13 @@ export async function GET(request: NextRequest) {
             return BackendError("Missing 'code' query parameter");
         }
 
+        const redirectUri = `${request.nextUrl.origin}/callback`;
+
         const payload = {
             "grant_type": "authorization_code",
             "client_id": process.env.NEXT_PUBLIC_APP_ID,
             "client_secret": process.env.APP_SECRET,
-            "redirect_uri": process.env.NEXT_PUBLIC_REDIRACT_URL,
+            "redirect_uri": redirectUri,
             "code": code
         }
 
