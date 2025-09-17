@@ -40,9 +40,12 @@ export default function Page() {
 
   useEffect(() => {
     fetchListEmail();
-  }, []);
+  }, [userInfo]);
 
   const fetchListEmail = async () => {
+    if (typeof userInfo?.email === "undefined") {
+      return;
+    }
     const response = await backendClient.getEmailList(
       userInfo?.email ?? "",
       20,
