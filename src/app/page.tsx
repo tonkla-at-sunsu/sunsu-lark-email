@@ -86,7 +86,7 @@ export default function Page() {
       id: input.message_id,
       subject: input.subject,
       head_from_email: input.head_from.mail_address,
-      attachment_content: attachment_content,
+      attachment_content: input.attachments.length > 0 ? attachment_content : "",
       data: input,
     };
   };
