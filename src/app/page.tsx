@@ -10,7 +10,8 @@ import { EmailDetail, isErrorResponse } from "@/types/request";
 import { useHelperContext } from "@/components/providers/helper-provider";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Filter, ChevronDown } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Filter, ChevronDown, Download } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,7 +71,7 @@ export const columns: ColumnDef<EmailList>[] = [
 
 export default function Page() {
   const [emailDetails, setEmailDetails] = useState<EmailDetail[]>([]);
-  const { backendClient, userInfo, setShowEmailDetail, setFullLoading } =
+  const { backendClient, userInfo, setShowEmailDetail, setFullLoading, setAlert } =
     useHelperContext()();
   const [filterSender, setFilterSender] = useState<string>("");
   const [filterSubject, setFilterSubject] = useState<string>("");
@@ -92,6 +93,15 @@ export default function Page() {
   const [isTabActive, setIsTabActive] = useState<boolean>(true);
   const [isBackgroundLoadingInOtherTab, setIsBackgroundLoadingInOtherTab] =
     useState<boolean>(false);
+  const [selectedEmails, setSelectedEmails] = useState<EmailList[]>([]);
+  const [showDownloadDialog, setShowDownloadDialog] = useState<boolean>(false);
+  const [availableExtensions, setAvailableExtensions] = useState<string[]>([]);
+  const [selectedExtensions, setSelectedExtensions] = useState<string[]>([]);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
+  const [totalFileCount, setTotalFileCount] = useState<number>(0);
+  const [fileCountByExtension, setFileCountByExtension] = useState<
+    Record<string, number>
+  >({});
 
   useEffect(() => {
     void fetchInitialEmails();
@@ -120,13 +130,11 @@ export default function Page() {
     };
     initDefaults();
 
-    // Page Visibility API setup
     const handleVisibilityChange = () => {
       const isVisible = !document.hidden;
       setIsTabActive(isVisible);
     };
 
-    // Broadcast Channel setup for inter-tab communication
     let broadcastChannel: BroadcastChannel | null = null;
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
       broadcastChannel = new BroadcastChannel("background-loading");
@@ -149,6 +157,32 @@ export default function Page() {
       }
     };
   }, [userInfo]);
+
+  // Update file count when selected extensions or emails change
+  useEffect(() => {
+    if (selectedExtensions.length === 0 || selectedEmails.length === 0) {
+      setTotalFileCount(0);
+      setFileCountByExtension({});
+      return;
+    }
+
+    let count = 0;
+    const countByExt: Record<string, number> = {};
+
+    selectedEmails.forEach((email) => {
+      email.data.attachments.forEach((attachment) => {
+        const filename = attachment.filename || "";
+        const extension = filename.split(".").pop()?.toLowerCase();
+        if (extension && selectedExtensions.includes(extension)) {
+          count++;
+          countByExt[extension] = (countByExt[extension] || 0) + 1;
+        }
+      });
+    });
+
+    setTotalFileCount(count);
+    setFileCountByExtension(countByExt);
+  }, [selectedExtensions, selectedEmails]);
 
   const clampDateRange = (
     startStr: string,
@@ -178,7 +212,7 @@ export default function Page() {
       end = tmp > today ? today : tmp;
     }
     if (start && end) {
-      const maxSpanMs = 62 * 24 * 60 * 60 * 1000; // ~2 months cap
+      const maxSpanMs = 62 * 24 * 60 * 60 * 1000;
       const span = end.getTime() - start.getTime();
       if (span > maxSpanMs) {
         // Prefer clamping end if user changed start; caller decides which one changed
@@ -240,21 +274,16 @@ export default function Page() {
       return;
     }
 
-    // Check if another tab is already doing background loading
     if (isBackgroundLoadingInOtherTab) {
-      console.log("Background loading already in progress in another tab");
       return;
     }
 
-    // Only start background loading if this tab is active
     if (!isTabActive) {
-      console.log("Tab is not active, skipping background loading");
       return;
     }
 
     setIsBackgroundLoading(true);
 
-    // Broadcast to other tabs that background loading has started
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
       const broadcastChannel = new BroadcastChannel("background-loading");
       broadcastChannel.postMessage({ type: "background-loading-started" });
@@ -282,9 +311,7 @@ export default function Page() {
         new Promise((resolve) => setTimeout(resolve, ms));
 
       while (hasMore) {
-        // Check if tab is still active before each iteration
         if (!isTabActive) {
-          console.log("Tab became inactive, stopping background loading");
           break;
         }
 
@@ -470,7 +497,6 @@ export default function Page() {
     return input.map((item) => convertEmailDetailToEmailList(item));
   };
 
-  // Filter management functions
   const loadSavedFilters = async () => {
     if (typeof userInfo?.email === "undefined") return;
     try {
@@ -545,6 +571,98 @@ export default function Page() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       void fetchFilteredEmails(0);
+    }
+  };
+
+  // Batch download functions
+  const handleSelectionChange = (selectedRows: EmailList[]) => {
+    setSelectedEmails(selectedRows);
+  };
+
+  const openDownloadDialog = () => {
+    if (selectedEmails.length === 0) return;
+
+    const extensions = new Set<string>();
+    selectedEmails.forEach((email) => {
+      email.data.attachments.forEach((attachment) => {
+        const filename = attachment.filename || "";
+        const extension = filename.split(".").pop()?.toLowerCase();
+        if (extension) {
+          extensions.add(extension);
+        }
+      });
+    });
+
+    const extensionsArray = Array.from(extensions).sort();
+    setAvailableExtensions(extensionsArray);
+    setSelectedExtensions(extensionsArray);
+    setShowDownloadDialog(true);
+  };
+
+  const handleDownload = async () => {
+    if (selectedEmails.length === 0 || selectedExtensions.length === 0) return;
+
+    setIsDownloading(true);
+    try {
+      const emailAttachments = selectedEmails
+        .map((email) => {
+          const filteredAttachments = email.data.attachments.filter(
+            (attachment) => {
+              const filename = attachment.filename || "";
+              const extension = filename.split(".").pop()?.toLowerCase();
+              return extension && selectedExtensions.includes(extension);
+            },
+          );
+          return {
+            email_id: email.data.message_id,
+            attachment_ids: filteredAttachments.map(
+              (attachment) => attachment.id,
+            ),
+          };
+        })
+        .filter((item) => item.attachment_ids.length > 0);
+
+      if (emailAttachments.length === 0) {
+        setAlert("เกิดข้อผิดพลาด", "ไม่มีไฟล์ที่ตรงกับนามสกุลที่เลือก", () => {} , false);
+        return;
+      }
+
+      setFullLoading(true);
+      const response = await fetch("/api/email/batch-download", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_email: userInfo?.email,
+          email_attachments: emailAttachments,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Download failed:", errorText);
+        throw new Error(`Download failed: ${response.status} ${errorText}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `email-attachments-${new Date()
+        .toISOString()
+        .slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setShowDownloadDialog(false);
+      setFullLoading(false);
+    } catch (error) {
+      setAlert("เกิดข้อผิดพลาด", `เกิดข้อผิดพลาดในการดาวน์โหลด ${error}`, () => {} , false);
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -630,6 +748,15 @@ export default function Page() {
                     className="hover:shadow-md transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isSearching ? "กำลังค้นหา..." : "ค้นหา"}
+                  </Button>
+                  <Button
+                    onClick={openDownloadDialog}
+                    disabled={selectedEmails.length === 0}
+                    variant="outline"
+                    className="hover:shadow-md transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    ดาวน์โหลด ({selectedEmails.length})
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -758,6 +885,7 @@ export default function Page() {
                 data={tranformData(emailDetails)}
                 columns={columns}
                 onClickRow={(emailList) => setShowEmailDetail(emailList.data)}
+                onSelectionChange={handleSelectionChange}
               />
             </div>
           </div>
@@ -805,6 +933,102 @@ export default function Page() {
               className="hover:shadow-md transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             >
               บันทึก
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Download Dialog */}
+      <AlertDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>เลือกไฟล์ที่ต้องการดาวน์โหลด</AlertDialogTitle>
+            <AlertDialogDescription>
+              เลือกนามสกุลไฟล์ที่ต้องการดาวน์โหลดจาก {selectedEmails.length}{" "}
+              อีเมลที่เลือก
+              <br />
+              <span className="font-medium text-blue-600">
+                จำนวนไฟล์ที่จะดาวน์โหลด: {totalFileCount} ไฟล์
+              </span>
+              {totalFileCount > 0 && (
+                <div className="mt-2 text-sm text-gray-600">
+                  <div className="font-medium mb-1">รายละเอียดไฟล์:</div>
+                  {Object.entries(fileCountByExtension)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([extension, count]) => (
+                      <div key={extension} className="ml-2">
+                        • .{extension}: {count} ไฟล์
+                      </div>
+                    ))}
+                </div>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="select-all"
+                  checked={
+                    selectedExtensions.length === availableExtensions.length
+                  }
+                  onCheckedChange={(checked: boolean) => {
+                    if (checked) {
+                      setSelectedExtensions([...availableExtensions]);
+                    } else {
+                      setSelectedExtensions([]);
+                    }
+                  }}
+                />
+                <label htmlFor="select-all" className="text-sm font-medium">
+                  เลือกทั้งหมด
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                {availableExtensions.map((extension) => (
+                  <div key={extension} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={extension}
+                      checked={selectedExtensions.includes(extension)}
+                      onCheckedChange={(checked: boolean) => {
+                        if (checked) {
+                          setSelectedExtensions([
+                            ...selectedExtensions,
+                            extension,
+                          ]);
+                        } else {
+                          setSelectedExtensions(
+                            selectedExtensions.filter(
+                              (ext) => ext !== extension,
+                            ),
+                          );
+                        }
+                      }}
+                    />
+                    <label htmlFor={extension} className="text-sm">
+                      .{extension}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setShowDownloadDialog(false)}
+              className="hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+            >
+              ยกเลิก
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDownload}
+              disabled={selectedExtensions.length === 0 || isDownloading}
+              className="hover:shadow-md transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isDownloading ? "กำลังดาวน์โหลด..." : "ดาวน์โหลด"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

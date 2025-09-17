@@ -23,12 +23,14 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   onClickRow: (data: TData) => void;
+  onSelectionChange?: (selectedRows: TData[]) => void;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   onClickRow,
+  onSelectionChange,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const augmentedColumns = useMemo<ColumnDef<TData, unknown>[]>(() => {
@@ -77,7 +79,16 @@ export function DataTable<TData, TValue>({
     columns: augmentedColumns as ColumnDef<TData, TValue>[],
     state: { rowSelection },
     enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
+    onRowSelectionChange: (updater) => {
+      setRowSelection(updater);
+      // Call onSelectionChange with selected rows
+      if (onSelectionChange) {
+        const newSelection =
+          typeof updater === "function" ? updater(rowSelection) : updater;
+        const selectedRows = data.filter((_, index) => newSelection[index]);
+        onSelectionChange(selectedRows);
+      }
+    },
     getCoreRowModel: getCoreRowModel(),
   });
 
