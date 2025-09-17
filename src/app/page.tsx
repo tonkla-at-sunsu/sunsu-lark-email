@@ -71,8 +71,13 @@ export const columns: ColumnDef<EmailList>[] = [
 
 export default function Page() {
   const [emailDetails, setEmailDetails] = useState<EmailDetail[]>([]);
-  const { backendClient, userInfo, setShowEmailDetail, setFullLoading, setAlert } =
-    useHelperContext()();
+  const {
+    backendClient,
+    userInfo,
+    setShowEmailDetail,
+    setFullLoading,
+    setAlert,
+  } = useHelperContext()();
   const [filterSender, setFilterSender] = useState<string>("");
   const [filterSubject, setFilterSubject] = useState<string>("");
   const [filterStartDate, setFilterStartDate] = useState<string>("");
@@ -623,7 +628,12 @@ export default function Page() {
         .filter((item) => item.attachment_ids.length > 0);
 
       if (emailAttachments.length === 0) {
-        setAlert("เกิดข้อผิดพลาด", "ไม่มีไฟล์ที่ตรงกับนามสกุลที่เลือก", () => {} , false);
+        setAlert(
+          "เกิดข้อผิดพลาด",
+          "ไม่มีไฟล์ที่ตรงกับนามสกุลที่เลือก",
+          () => {},
+          false,
+        );
         return;
       }
 
@@ -660,7 +670,12 @@ export default function Page() {
       setShowDownloadDialog(false);
       setFullLoading(false);
     } catch (error) {
-      setAlert("เกิดข้อผิดพลาด", `เกิดข้อผิดพลาดในการดาวน์โหลด ${error}`, () => {} , false);
+      setAlert(
+        "เกิดข้อผิดพลาด",
+        `เกิดข้อผิดพลาดในการดาวน์โหลด ${error}`,
+        () => {},
+        false,
+      );
     } finally {
       setIsDownloading(false);
     }
@@ -749,15 +764,17 @@ export default function Page() {
                   >
                     {isSearching ? "กำลังค้นหา..." : "ค้นหา"}
                   </Button>
-                  <Button
-                    onClick={openDownloadDialog}
-                    disabled={selectedEmails.length === 0}
-                    variant="outline"
-                    className="hover:shadow-md transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    ดาวน์โหลด ({selectedEmails.length})
-                  </Button>
+                  {selectedEmails.length > 0 && (
+                    <Button
+                      onClick={openDownloadDialog}
+                      disabled={selectedEmails.length === 0}
+                      variant="outline"
+                      className="hover:shadow-md transition-all duration-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      ดาวน์โหลด ({selectedEmails.length})
+                    </Button>
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
