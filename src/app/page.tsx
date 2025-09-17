@@ -89,6 +89,9 @@ export default function Page() {
   const [showSaveFilterDialog, setShowSaveFilterDialog] =
     useState<boolean>(false);
   const [filterName, setFilterName] = useState<string>("");
+  const [isTabActive, setIsTabActive] = useState<boolean>(true);
+  const [isBackgroundLoadingInOtherTab, setIsBackgroundLoadingInOtherTab] =
+    useState<boolean>(false);
 
   useEffect(() => {
     void fetchInitialEmails();
@@ -116,6 +119,35 @@ export default function Page() {
       setFilterEndDate((prev) => prev || endStr);
     };
     initDefaults();
+
+    // Page Visibility API setup
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsTabActive(isVisible);
+    };
+
+    // Broadcast Channel setup for inter-tab communication
+    let broadcastChannel: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      broadcastChannel = new BroadcastChannel("background-loading");
+
+      broadcastChannel.onmessage = (event) => {
+        if (event.data.type === "background-loading-started") {
+          setIsBackgroundLoadingInOtherTab(true);
+        } else if (event.data.type === "background-loading-finished") {
+          setIsBackgroundLoadingInOtherTab(false);
+        }
+      };
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
+    };
   }, [userInfo]);
 
   const clampDateRange = (
@@ -207,7 +239,28 @@ export default function Page() {
     if (typeof userInfo?.email === "undefined") {
       return;
     }
+
+    // Check if another tab is already doing background loading
+    if (isBackgroundLoadingInOtherTab) {
+      console.log("Background loading already in progress in another tab");
+      return;
+    }
+
+    // Only start background loading if this tab is active
+    if (!isTabActive) {
+      console.log("Tab is not active, skipping background loading");
+      return;
+    }
+
     setIsBackgroundLoading(true);
+
+    // Broadcast to other tabs that background loading has started
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      const broadcastChannel = new BroadcastChannel("background-loading");
+      broadcastChannel.postMessage({ type: "background-loading-started" });
+      broadcastChannel.close();
+    }
+
     try {
       const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;
       let hasMore = true;
@@ -229,6 +282,12 @@ export default function Page() {
         new Promise((resolve) => setTimeout(resolve, ms));
 
       while (hasMore) {
+        // Check if tab is still active before each iteration
+        if (!isTabActive) {
+          console.log("Tab became inactive, stopping background loading");
+          break;
+        }
+
         const listResponse = await backendClient.getEmailList(
           userInfo?.email ?? "",
           20,
@@ -277,6 +336,13 @@ export default function Page() {
       }
     } finally {
       setIsBackgroundLoading(false);
+
+      // Broadcast to other tabs that background loading has finished
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        const broadcastChannel = new BroadcastChannel("background-loading");
+        broadcastChannel.postMessage({ type: "background-loading-finished" });
+        broadcastChannel.close();
+      }
     }
   };
 
@@ -682,6 +748,8 @@ export default function Page() {
               <div className="md:ml-auto text-xs text-gray-500 md:pt-0">
                 {isBackgroundLoading ? (
                   <span>Syncing {cachedCount} email</span>
+                ) : isBackgroundLoadingInOtherTab ? (
+                  <span>Syncing in another tab</span>
                 ) : (
                   <span>All Data Sync</span>
                 )}
