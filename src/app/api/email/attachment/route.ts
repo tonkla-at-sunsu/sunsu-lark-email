@@ -17,16 +17,42 @@ export async function GET(request: NextRequest) {
 
         const token = await getTenantAccessToken()
 
-        const qs = new URLSearchParams();
-        qs.set('email', email);
-        qs.set('message_id', messageId);
-        ids.forEach(id => qs.append('attachment_ids', id));
+        // Split attachment IDs into batches of 20 (API limit)
+        const batchSize = 20;
+        const batches: string[][] = [];
+        for (let i = 0; i < ids.length; i += batchSize) {
+            batches.push(ids.slice(i, i + batchSize));
+        }
 
-        const response = await axios.get(`https://open.larksuite.com/open-apis/mail/v1/user_mailboxes/${email}/messages/${messageId}/attachments/download_url?${qs.toString()}`, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            },
-        })
+        // Fetch download URLs for all batches
+        const allDownloadUrls: Array<{
+            download_url: string;
+            file_name?: string;
+            attachment_id: string;
+        }> = [];
+
+        for (let i = 0; i < batches.length; i++) {
+            const batch = batches[i];
+            const qs = new URLSearchParams();
+            qs.set('email', email);
+            qs.set('message_id', messageId);
+            batch.forEach(id => qs.append('attachment_ids', id));
+
+            const response = await axios.get(`https://open.larksuite.com/open-apis/mail/v1/user_mailboxes/${email}/messages/${messageId}/attachments/download_url?${qs.toString()}`, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                },
+            });
+
+            if (response.data.data?.download_urls) {
+                allDownloadUrls.push(...response.data.data.download_urls);
+            }
+
+            // Add delay between requests to respect rate limit (1 req/s)
+            if (i < batches.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
 
         const zip = archiver("zip", { zlib: { level: 9 } });
         const webStream = Readable.toWeb(zip as unknown as Readable) as unknown as ReadableStream;
@@ -39,7 +65,7 @@ export async function GET(request: NextRequest) {
 
         (async () => {
             try {
-                for (const it of response.data.data.download_urls) {
+                for (const it of allDownloadUrls) {
                     const url = it.download_url;
                     const filename = it.file_name ?? it.attachment_id;
 

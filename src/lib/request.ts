@@ -1,6 +1,6 @@
-import axios, { AxiosInstance } from "axios";
-import { ErrorResponse, GetDowloadAttachmentFilesResponse, GetEmailDetailResponse, GetEmailListResponse, GetUserInfoResponse } from "@/types/request";
-import { getItem } from "./storage";
+import axios from "axios";
+import { ErrorResponse, GetEmailDetailResponse, GetEmailListResponse, GetUserInfoResponse } from "@/types/request";
+import { idbGetItem, idbSetItem } from "@/lib/storage";
 
 const handlerError = (
     error: unknown,
@@ -11,23 +11,29 @@ const handlerError = (
         isOpen: boolean,
     ) => void,
 ): ErrorResponse => {
-    console.log(JSON.stringify(error));
-
     if (axios.isAxiosError(error)) {
         if (
             error.response &&
             error.response.data &&
             (error.response.data as { error?: unknown }).error
         ) {
-            setAlert("เกิดข้อผิดพลาด", (error.response.data as { msg?: string }).msg || "Error", () => {
+            const responseData = error.response.data as { code?: number; msg?: string };
+            if (responseData.code === 99991400) {
+                return {
+                    code: 99991400,
+                    msg: "Rate limit exceeded, retrying...",
+                    error: true,
+                };
+            }
+            setAlert("เกิดข้อผิดพลาด", responseData.msg || "Error", () => {
                 window.location.href = "/login"
             }, false);
             return {
                 code: error.response.status || 400,
-                msg: (error.response.data as { msg?: string }).msg || "Error",
+                msg: responseData.msg || "Error",
                 error: true,
             };
-        } else {            
+        } else {
             setAlert("เกิดข้อผิดพลาด", error.message, () => {
                 window.location.href = "/login"
             }, false);
@@ -38,6 +44,7 @@ const handlerError = (
             };
         }
     } else {
+        console.error(error)
         setAlert("เกิดข้อผิดพลาด", "An unknown error occurred. Try again!", () => {
             window.location.href = "/"
         }, false);
@@ -50,7 +57,6 @@ const handlerError = (
 };
 
 export class BackendClient {
-    private readonly client: AxiosInstance;
     private readonly setAlert: (
         message: string,
         type: string,
@@ -67,12 +73,25 @@ export class BackendClient {
         ) => void,
     ) {
         this.setAlert = setAlert;
-        this.client = axios.create({
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${getItem("access_token")}`,
-            },
-        });
+    }
+
+    private async retryWithDelay<T>(
+        requestFn: () => Promise<T>,
+        maxRetries: number = 3
+    ): Promise<T> {
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            try {
+                return await requestFn();
+            } catch (error) {
+                const errorResponse = handlerError(error, this.setAlert);
+                if (errorResponse.code === 99991400 && attempt < maxRetries - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    continue;
+                }
+                throw errorResponse;
+            }
+        }
+        throw { code: 9999, msg: "Max retries exceeded", error: true };
     }
 
     getAccessToken = async (code: string): Promise<GetUserInfoResponse | ErrorResponse> => {
@@ -85,36 +104,32 @@ export class BackendClient {
     }
 
     getEmailList = async (email: string, pageSize: number, folderId: string, pageToken = ""): Promise<GetEmailListResponse | ErrorResponse> => {
-        try {
+        return this.retryWithDelay(async () => {
             let query = ""
             if (pageToken !== "") {
                 query = `&page_token=${pageToken}`
             }
             const response = await axios.get(`/api/email/list?email=${encodeURIComponent(email)}&page_size=${pageSize}&folder_id=${encodeURIComponent(folderId)}${query}`)
             return response.data
-        } catch (e) {
-            return handlerError(e, this.setAlert)
-        }
+        });
     }
 
     getEmailDetail = async (email: string, messageId: string): Promise<GetEmailDetailResponse | ErrorResponse> => {
-        try {
-            const cacheKey = `email_detail:${email}:${messageId}`
-            if (typeof window !== "undefined") {
-                const cached = window.localStorage.getItem(cacheKey)
-                if (cached) {
-                    return JSON.parse(cached) as GetEmailDetailResponse
-                }
+        const cacheKey = `email_detail:${email}:${messageId}`
+        const cached = await idbGetItem(cacheKey)
+        if (cached) {
+            try {
+                return JSON.parse(cached) as GetEmailDetailResponse
+            } catch (err) {
+                console.error(err);
             }
-
-            const response = await axios.get(`/api/email/detail?email=${encodeURIComponent(email)}&message_id=${messageId}`)
-            if (typeof window !== "undefined") {
-                window.localStorage.setItem(cacheKey, JSON.stringify(response.data))
-            }
-            return response.data
-        } catch (e) {
-            return handlerError(e, this.setAlert)
         }
+
+        return this.retryWithDelay(async () => {
+            const response = await axios.get(`/api/email/detail?email=${encodeURIComponent(email)}&message_id=${messageId}`)
+            await idbSetItem(cacheKey, JSON.stringify(response.data))
+            return response.data
+        });
     }
 
     getDowloadAttachmentFiles = async (email: string, messageId: string, attachmentIds: string[]): Promise<void | ErrorResponse> => {

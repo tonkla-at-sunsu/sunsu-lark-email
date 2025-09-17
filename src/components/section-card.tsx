@@ -12,7 +12,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Separator } from "@/components/ui/separator";
-import { EmailDetail, isErrorResponse } from "@/types/request";
+import { EmailDetail } from "@/types/request";
 import { decodeBase64Utf8 } from "@/lib/utils";
 import { useHelperContext } from "./providers/helper-provider";
 
@@ -50,8 +50,8 @@ export function SectionCard({
         }
       >
         <DrawerHeader className="gap-1">
-          <DrawerTitle>{item.subject}</DrawerTitle>
-          <DrawerDescription>
+          <DrawerTitle className="select-text">{item.subject}</DrawerTitle>
+          <DrawerDescription className="select-text">
             จาก{" "}
             <b>
               {item.head_from.mail_address} ({item.head_from.name})
@@ -63,23 +63,26 @@ export function SectionCard({
             <>
               <Separator />
               <div
-                className="prose prose-sm max-w-none"
+                className="prose prose-sm max-w-none select-text"
                 dangerouslySetInnerHTML={{
-                  __html: decodeBase64Utf8(item.body_html),
+                  __html: decodeBase64Utf8(
+                    item.body_html || item.body_plain_text,
+                  ),
                 }}
               />
               <Separator />
             </>
           )}
-          <Separator />
 
           {isMobile && (
             <>
               <div className="flex flex-col gap-2">
                 <div
-                  className="prose prose-sm max-w-none"
+                  className="prose prose-sm max-w-none select-text"
                   dangerouslySetInnerHTML={{
-                    __html: decodeBase64Utf8(item.body_html),
+                    __html: decodeBase64Utf8(
+                      item.body_html || item.body_plain_text,
+                    ),
                   }}
                 />
               </div>
@@ -87,13 +90,21 @@ export function SectionCard({
           )}
         </div>
         <DrawerFooter>
-          <Button disabled={item.attachments.length == 0} className="cursor-pointer" onClick={onDowload}>
+          <Button
+            disabled={item.attachments.length == 0}
+            className="cursor-pointer"
+            onClick={onDowload}
+          >
             {item.attachments.length == 0
               ? "ไม่มีไฟล์"
               : `ดาวโหลด ${item.attachments.length} ไฟล์`}
           </Button>
           <DrawerClose asChild>
-            <Button className="cursor-pointer" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              className="cursor-pointer"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               ปิดหน้าต่างนี้
             </Button>
           </DrawerClose>

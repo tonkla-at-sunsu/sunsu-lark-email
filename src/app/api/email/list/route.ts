@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
 
         const pageSize = request.nextUrl.searchParams.get("page_size") || "20";
         const folderId = request.nextUrl.searchParams.get("folder_id") || "INBOX";
+        const pageToken = request.nextUrl.searchParams.get("page_token") || "";
 
         const token = await getTenantAccessToken()
 
@@ -21,7 +22,8 @@ export async function GET(request: NextRequest) {
             },
             params: {
                 page_size: pageSize,
-                folder_id: folderId
+                folder_id: folderId,
+                page_token: pageToken || undefined
             }
         })
 
