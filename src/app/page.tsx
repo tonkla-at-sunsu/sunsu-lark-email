@@ -425,7 +425,7 @@ export default function Page() {
         if (!hasMore) {
           break;
         }
-        await sleep(1000);
+        await sleep(1200);
         if (accumulated.length > 2000) {
           break;
         }
