@@ -215,36 +215,63 @@ export default function Page() {
     if (!startStr && !endStr) {
       return { start: startStr, end: endStr };
     }
+
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setHours(23, 59, 59, 999); // Set to end of today
+
     const parse = (s: string) => {
-      const d = new Date(`${s}T00:00:00`);
-      d.setHours(0, 0, 0, 0);
+      if (!s) return null;
+      // Create date in local timezone to avoid timezone issues
+      const [year, month, day] = s.split("-").map(Number);
+      const d = new Date(year, month - 1, day);
       return d;
     };
+
     let start = startStr ? parse(startStr) : null;
     let end = endStr ? parse(endStr) : null;
-    if (end && end > today) end = today;
+
+    // Ensure end date is not in the future
+    if (end && end > today) {
+      end = new Date(today);
+    }
+
+    // Auto-set start date if only end date is provided
     if (!start && end) {
       const tmp = new Date(end);
       tmp.setMonth(tmp.getMonth() - 1);
       start = tmp;
     }
+
+    // Auto-set end date if only start date is provided
     if (!end && start) {
       const tmp = new Date(start);
       tmp.setMonth(tmp.getMonth() + 1);
-      end = tmp > today ? today : tmp;
+      end = tmp > today ? new Date(today) : tmp;
     }
+
+    // Ensure start date is not after end date
+    if (start && end && start > end) {
+      start = new Date(end);
+    }
+
+    // Limit date range to 62 days
     if (start && end) {
       const maxSpanMs = 62 * 24 * 60 * 60 * 1000;
       const span = end.getTime() - start.getTime();
       if (span > maxSpanMs) {
-        // Prefer clamping end if user changed start; caller decides which one changed
         const clampedEnd = new Date(start.getTime() + maxSpanMs);
-        end = clampedEnd > today ? today : clampedEnd;
+        end = clampedEnd > today ? new Date(today) : clampedEnd;
       }
     }
-    const toStr = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
+
+    const toStr = (d: Date | null) => {
+      if (!d) return "";
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
     return { start: toStr(start), end: toStr(end) };
   };
 
@@ -426,6 +453,7 @@ export default function Page() {
     const subjectQuery = filterSubject.trim().toLowerCase();
     const senderOk = senderQuery === "" || sender.includes(senderQuery);
     const subjectOk = subjectQuery === "" || subject.includes(subjectQuery);
+
     const parseToDate = (value: string): Date => {
       const numeric = Number(value);
       if (!Number.isNaN(numeric)) {
@@ -434,18 +462,29 @@ export default function Page() {
       }
       return new Date(value);
     };
+
     const emailDate = parseToDate(detail.internal_date);
+
     const inRange = (() => {
       if (filterStartDate) {
-        const start = new Date(`${filterStartDate}T00:00:00`);
+        // Parse start date in local timezone
+        const [startYear, startMonth, startDay] = filterStartDate
+          .split("-")
+          .map(Number);
+        const start = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
         if (emailDate < start) return false;
       }
       if (filterEndDate) {
-        const end = new Date(`${filterEndDate}T23:59:59.999`);
+        // Parse end date in local timezone
+        const [endYear, endMonth, endDay] = filterEndDate
+          .split("-")
+          .map(Number);
+        const end = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
         if (emailDate > end) return false;
       }
       return true;
     })();
+
     return senderOk && subjectOk && inRange;
   };
 
@@ -834,8 +873,13 @@ export default function Page() {
                     onChange={(e) => {
                       const raw = e.target.value;
                       const { start, end } = clampDateRange(raw, filterEndDate);
-                      setFilterStartDate(start);
-                      setFilterEndDate(end);
+                      // Only update if values actually changed to prevent infinite loops
+                      if (start !== filterStartDate) {
+                        setFilterStartDate(start);
+                      }
+                      if (end !== filterEndDate) {
+                        setFilterEndDate(end);
+                      }
                     }}
                     onKeyDown={handleKeyDown}
                     disabled={selectedFolderId !== "INBOX"}
@@ -855,8 +899,13 @@ export default function Page() {
                         filterStartDate,
                         raw,
                       );
-                      setFilterStartDate(start);
-                      setFilterEndDate(end);
+                      // Only update if values actually changed to prevent infinite loops
+                      if (start !== filterStartDate) {
+                        setFilterStartDate(start);
+                      }
+                      if (end !== filterEndDate) {
+                        setFilterEndDate(end);
+                      }
                     }}
                     onKeyDown={handleKeyDown}
                     disabled={selectedFolderId !== "INBOX"}
