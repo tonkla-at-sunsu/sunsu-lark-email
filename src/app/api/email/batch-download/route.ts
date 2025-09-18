@@ -108,6 +108,8 @@ export async function POST(request: NextRequest) {
                     file_size: number;
                 }> = [];
 
+                const usedFileNames = new Set<string>();
+
                 for (const it of allDownloadUrls) {
                     const url = it.download_url;
                     const filename = it.file_name ?? it.attachment_id;
@@ -154,15 +156,23 @@ export async function POST(request: NextRequest) {
                         const ab = await r.arrayBuffer();
                         const buf = Buffer.from(ab);
 
-                        const folderName = `email-${it.email_id}`;
-                        const filePath = `${folderName}/${resolvedName || filename}`;
-                        zip.append(buf, { name: filePath });
-                        console.log(`Added to zip: ${filePath}`);
+                        let finalFileName = resolvedName || filename;
+                        let index = 1;
+                        while (usedFileNames.has(finalFileName)) {
+                            const nameWithoutExt = finalFileName.replace(/\.[^/.]+$/, "");
+                            const ext = finalFileName.match(/\.[^/.]+$/)?.[0] || "";
+                            finalFileName = `${nameWithoutExt}-${index}${ext}`;
+                            index++;
+                        }
+                        usedFileNames.add(finalFileName);
+
+                        zip.append(buf, { name: finalFileName });
+                        console.log(`Added to zip: ${finalFileName}`);
 
                         successfulDownloads.push({
                             email_id: it.email_id,
                             attachment_id: it.attachment_id,
-                            filename: resolvedName || filename,
+                            filename: finalFileName,
                             file_size: buf.length
                         });
                     } catch (fetchError) {
@@ -197,8 +207,7 @@ export async function POST(request: NextRequest) {
                             `   - Email ID: ${file.email_id}\n` +
                             `   - ขนาด: ${formatBytes(file.file_size)}\n` +
                             `   - Attachment ID: ${file.attachment_id}\n`
-                        ).join('\n') +
-                        `\nหมายเหตุ: ไฟล์ทั้งหมดถูกจัดเก็บในโฟลเดอร์แยกตาม Email ID`;
+                        ).join('\n');
 
                     zip.append(Buffer.from(summaryReport, 'utf-8'), { name: 'download-summary.txt' });
                     console.log(`Created summary report for ${successfulDownloads.length} successful downloads`);

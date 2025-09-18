@@ -128,7 +128,7 @@ export default function Page() {
 
   useEffect(() => {
     void fetchInitialEmails();
-    void backgroundLoadLast60Days();
+    void backgroundLoad();
     void refreshCachedCount();
     void loadSavedFilters();
     void fetchFolders();
@@ -315,7 +315,7 @@ export default function Page() {
     }
   };
 
-  const backgroundLoadLast60Days = async (): Promise<void> => {
+  const backgroundLoad = async (): Promise<void> => {
     if (typeof userInfo?.email === "undefined") {
       return;
     }
