@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
             body.data.description = " "
         }
 
-        const completedAt = body.data.status.toLowerCase() === "completed" ? (new Date()).valueOf().toString() : "0"
+        const completedAt = body.data.status.toLowerCase() === "done" ? (new Date()).valueOf().toString() : "0"
 
         const response = await axios.post(`https://open.larksuite.com/open-apis/task/v2/tasks?user_id_type=union_id`,
             {
