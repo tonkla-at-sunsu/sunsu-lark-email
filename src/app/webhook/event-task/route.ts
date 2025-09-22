@@ -28,6 +28,13 @@ export async function POST(request: NextRequest) {
         const body: WebhookRequest = await request.json();
         const token = await getTenantAccessToken();
 
+        if(body.challenge){
+            const nextResponse = NextResponse.json({
+                challenge: body.challenge
+            }, { status: 200 });
+            return nextResponse;
+        }
+
         const responseTaskDetail = await axios.get(`https://open.larksuite.com/open-apis/task/v2/tasks/${body.event.task_id}`, {
             headers: {
                 Authorization: `Bearer ${token}`
