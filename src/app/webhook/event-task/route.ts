@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         const body: WebhookRequest = await request.json();
         const token = await getTenantAccessToken();
 
-        if(body.challenge){
+        if (body.challenge) {
             const nextResponse = NextResponse.json({
                 challenge: body.challenge
             }, { status: 200 });
