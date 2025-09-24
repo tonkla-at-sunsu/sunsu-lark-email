@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { getTenantAccessToken, handleError } from '@/lib/backend-helper';
+import { getSupabaseServiceClient } from "@/lib/database";
 
 interface Event {
     event_type: string;
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
     try {
         const body: WebhookRequest = await request.json();
         const token = await getTenantAccessToken();
+        const supabase = getSupabaseServiceClient();
 
         if (body.challenge) {
             const nextResponse = NextResponse.json({
@@ -43,51 +45,31 @@ export async function POST(request: NextRequest) {
 
         const { task } = responseTaskDetail.data.data;
 
-        const findAppId = await axios.post(`https://open.larksuite.com/open-apis/bitable/v1/apps/IHQyb5FOeaIHm3scWdnlqd2DgEu/tables/tblrHYUQHZ0r72ja/records/search`,
+        const { data } = await supabase.from('task-mapping')
+            .select()
+            .eq('task_id', body.event.task_id)
+
+        if (!data || data.length === 0) {
+            console.error('No task mapping found for task_id:', body.event.task_id);
+            return NextResponse.json({ error: 'Task mapping not found' }, { status: 404 });
+        }
+
+        const { base_id: appId, table_id: tableId, record_id: recordId } = data[0]
+
+
+        await axios.put(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/${recordId}`,
             {
-                filter: {
-                    conjunction: "and",
-                    conditions: [
-                        {
-                            field_name: "Task ID",
-                            operator: "is",
-                            value: [body.event.task_id]
-                        }
-                    ],
+                fields: { 
+                    "Status": task.status,
+                    "Due Date": task.status === "todo" ? null : new Date().valueOf(),
                 }
-            }
-            , {
+            },
+            {
                 headers: {
                     Authorization: `Bearer ${token}`
                 }
-            })
-
-
-        if (Array.isArray(findAppId.data.data.items) && findAppId.data.data.items.length > 0) {
-            const firstItem = findAppId.data.data.items[0];
-
-            const appId = firstItem?.fields?.['App ID']?.[0]?.text;
-            const tableId = firstItem?.fields?.['Table ID']?.[0]?.text;
-            const recordId = firstItem?.fields?.['Record Id']?.[0]?.text;
-
-            if (!appId || !tableId) {
-                console.error('Missing required fields. Available fields:', Object.keys(firstItem?.fields || {}));
             }
-
-            await axios.put(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/${recordId}`,
-                {
-                    fields: { "Status": task.status }
-                },
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                }
-            )
-        } else {
-            console.log('No items found in response or items is not an array');
-            console.log('Items:', findAppId.data.data.items);
-        }
+        )
 
         const nextResponse = NextResponse.json({
             challenge: body.challenge

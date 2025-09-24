@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
         const body: UpdateTaskRequest = await request.json();
         const token = await getTenantAccessToken();
 
-        if(body.header.edit_by == "Automate Task") {
+        if(body.header.edit_by == "IT Bot") {
             return NextResponse.json({}, { status: 200 });
         }
 
@@ -71,7 +71,6 @@ export async function POST(request: NextRequest) {
         const { task } = responseTaskDetail.data.data;
 
         if (body.data.members[0]?.id !== "") {
-
             if (Array.isArray(task.members)) {
                 await axios.post(`https://open.larksuite.com/open-apis/task/v2/tasks/${body.header.task_id}/remove_members?user_id_type=open_id`,
                     {
@@ -84,7 +83,6 @@ export async function POST(request: NextRequest) {
                     }
                 )
             }
-
 
             await axios.post(`https://open.larksuite.com/open-apis/task/v2/tasks/${body.header.task_id}/add_members?user_id_type=union_id`,
                 {
