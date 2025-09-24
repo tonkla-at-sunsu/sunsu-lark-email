@@ -114,6 +114,8 @@ export async function POST(request: NextRequest) {
                     }
                 })
 
+                sectionId = sectionInfo.data.section.guid;
+
                 const { error: insertErr } = await supabase
                     .from("tasklist-mapping")
                     .insert(
@@ -129,9 +131,7 @@ export async function POST(request: NextRequest) {
                 if (insertErr) {
                     console.error('Supabase insert error:', insertErr);
                     throw new Error(`Failed to insert tasklist mapping: ${insertErr.message}`);
-                }
-
-                sectionId = sectionInfo.data.section.guid;
+                }    
             }
         }
 
