@@ -27,8 +27,6 @@ interface WebhookRequest {
 export async function POST(request: NextRequest) {
     try {
         const body: WebhookRequest = await request.json();
-        const token = await getTenantAccessToken();
-        const supabase = getSupabaseServiceClient();
 
         if (body.challenge) {
             const nextResponse = NextResponse.json({
@@ -36,6 +34,9 @@ export async function POST(request: NextRequest) {
             }, { status: 200 });
             return nextResponse;
         }
+
+        const token = await getTenantAccessToken();
+        const supabase = getSupabaseServiceClient();
 
         const responseTaskDetail = await axios.get(`https://open.larksuite.com/open-apis/task/v2/tasks/${body.event.task_id}`, {
             headers: {
