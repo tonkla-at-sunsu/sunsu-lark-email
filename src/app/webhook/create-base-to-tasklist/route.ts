@@ -101,21 +101,38 @@ export async function POST(request: NextRequest) {
         } else {
             taskListId = data?.[0]?.tasklist_id ?? ""
             const filteredSection = data?.filter((i: any) => i.section_name === body.phase);
-            if(Array.isArray(filteredSection) && filteredSection.length > 0) {
+            if (Array.isArray(filteredSection) && filteredSection.length > 0) {
                 sectionId = filteredSection[0].section_id;
-            }
+            } else {
+                const { data: sectionInfo } = await axios.post("https://open.larksuite.com/open-apis/task/v2/sections", {
+                    "name": body.phase,
+                    "resource_type": "tasklist",
+                    "resource_id": taskListId
+                }, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                })
 
-            const { data: sectionInfo } = await axios.post("https://open.larksuite.com/open-apis/task/v2/sections", {
-                "name": body.phase,
-                "resource_type": "tasklist",
-                "resource_id": taskListId
-            }, {
-                headers: {
-                    Authorization: `Bearer ${token}`
+                const { error: insertErr } = await supabase
+                    .from("tasklist-mapping")
+                    .insert(
+                        {
+                            table_id: body.table_id,
+                            base_id: body.base_id,
+                            tasklist_id: taskListId,
+                            tasklist_name: taskListName,
+                            section_id: sectionId,
+                            section_name: body.phase,
+                        }
+                    );
+                if (insertErr) {
+                    console.error('Supabase insert error:', insertErr);
+                    throw new Error(`Failed to insert tasklist mapping: ${insertErr.message}`);
                 }
-            })
 
-            sectionId = sectionInfo.data.section.guid;
+                sectionId = sectionInfo.data.section.guid;
+            }
         }
 
         const completedAt = body.status.toLowerCase() === "done" || body.status.toLowerCase() === "completed" ? (new Date()).valueOf().toString() : "0"
@@ -125,7 +142,7 @@ export async function POST(request: NextRequest) {
             "description": body.description !== "" ? body.description : " ",
             "due": {
                 "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf(),
-                "is_all_day": true
+                "is_all_day": false
             },
             "members": [
                 {
@@ -147,7 +164,7 @@ export async function POST(request: NextRequest) {
             ],
             "start": {
                 "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf(),
-                "is_all_day": true
+                "is_all_day": false
             },
             "reminders": [
                 {

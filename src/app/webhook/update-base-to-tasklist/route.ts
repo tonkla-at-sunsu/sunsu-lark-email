@@ -99,11 +99,11 @@ export async function POST(request: NextRequest) {
                     "description": body.description !== "" ? body.description : " ",
                     "start": {
                         "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf(),
-                        "is_all_day": true
+                        "is_all_day": false
                     },
                     "due": {
                         "timestamp": body.end_time !== "" ? body.end_time : new Date().valueOf(),
-                        "is_all_day": true
+                        "is_all_day": false
                     },
                     completed_at: completedAt
                 },
