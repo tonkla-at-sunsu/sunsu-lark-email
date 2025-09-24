@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
         if (data?.length == 0) {
             const membersRequest = [{
                 "id": body.create_by,
-                "role": "editor",
+                "role": "viewer",
                 "type": "user"
             }]
 
@@ -76,8 +76,10 @@ export async function POST(request: NextRequest) {
             taskListId = data?.[0]?.tasklist_id ?? ""
         }
 
+        const completedAt = body.status.toLowerCase() === "done" || body.status.toLowerCase() === "completed" ? (new Date()).valueOf().toString() : "0"
         const createdTaskResponse = await axios.post("https://open.larksuite.com/open-apis/task/v2/tasks?user_id_type=union_id", {
             "summary": body.title !== "" ? body.title : " ",
+            "completed_at": completedAt,
             "description": body.description !== "" ? body.description : " ",
             "due": {
                 "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf(),
@@ -129,6 +131,22 @@ export async function POST(request: NextRequest) {
         if (insertErr) {
             console.error('Supabase insert error:', insertErr);
             throw new Error(`Failed to insert tasklist mapping: ${insertErr.message}`);
+        }
+
+        if (body.owner !== "") {
+            await axios.post(`https://open.larksuite.com/open-apis/task/v2/tasklists/${taskListId}/add_members?user_id_type=union_id`, {
+                members: [
+                    {
+                        "id": body.owner,
+                        "role": "viewer",
+                        "type": "user"
+                    }
+                ]
+            }, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
         }
 
         const nextResponse = NextResponse.json(createdTaskResponse.data, { status: createdTaskResponse.status });

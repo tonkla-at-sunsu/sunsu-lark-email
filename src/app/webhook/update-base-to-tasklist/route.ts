@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     try {
         const body: WebhookRequest = await request.json();
 
-        if(body.update_by == "IT Bot") {
+        if (body.update_by == "IT Bot") {
             return NextResponse.json({}, { status: 200 });
         }
 
@@ -51,22 +51,25 @@ export async function POST(request: NextRequest) {
 
         if (body.owner !== "") {
             if (Array.isArray(task.members)) {
-                await axios.post(`https://open.larksuite.com/open-apis/task/v2/tasks/${taskId}/remove_members?user_id_type=open_id`,
-                    {
-                        members: [
-                            {
-                                "id": task.members.filter((m: Member) => m.role == "assignee")[0].id,
-                                "role": "assignee",
-                                "type": "user"
+                const ownerFiltered = task.members.filter((m: Member) => m.role == "assignee")
+                if (Array.isArray(ownerFiltered) && ownerFiltered.length > 0) {
+                    await axios.post(`https://open.larksuite.com/open-apis/task/v2/tasks/${taskId}/remove_members?user_id_type=open_id`,
+                        {
+                            members: [
+                                {
+                                    "id": task.members.filter((m: Member) => m.role == "assignee")[0].id,
+                                    "role": "assignee",
+                                    "type": "user"
+                                }
+                            ]
+                        },
+                        {
+                            headers: {
+                                Authorization: `Bearer ${token}`
                             }
-                        ]
-                    },
-                    {
-                        headers: {
-                            Authorization: `Bearer ${token}`
                         }
-                    }
-                )
+                    )
+                }
             }
 
 
@@ -88,7 +91,7 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const completedAt = body.status.toLowerCase() === "completed" ? (new Date()).valueOf().toString() : "0"
+        const completedAt = body.status.toLowerCase() === "done" || body.status.toLowerCase() === "completed" ? (new Date()).valueOf().toString() : "0"
         const response = await axios.patch(`https://open.larksuite.com/open-apis/task/v2/tasks/${taskId}?user_id_type=union_id`,
             {
                 task: {
@@ -112,6 +115,23 @@ export async function POST(request: NextRequest) {
                 }
             }
         )
+
+        if (body.owner !== "") {
+            const taskListId = task.tasklists[0].tasklist_guid;
+            await axios.post(`https://open.larksuite.com/open-apis/task/v2/tasklists/${taskListId}/add_members?user_id_type=union_id`, {
+                members: [
+                    {
+                        "id": body.owner,
+                        "role": "viewer",
+                        "type": "user"
+                    }
+                ]
+            }, {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+        }
 
         const nextResponse = NextResponse.json(response.data, { status: response.status });
         return nextResponse;
