@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
 import { getTenantAccessToken, handleError } from '@/lib/backend-helper';
 import { getSupabaseServiceClient } from "@/lib/database";
-
+import { addMemberToTask, addMemberToTaskList, createSection, createTask, createTaskList, getTableInfo } from "@/lib/lark-helper";
+import { Member } from "@/types/lark";
 
 interface WebhookRequest {
     table_id: string;
@@ -29,22 +29,19 @@ export async function POST(request: NextRequest) {
             .select()
             .eq('table_id', body.table_id)
             .eq('base_id', body.base_id)
+
         let taskListId = ""
         let sectionId = ""
-
-        const { data: tableInfo } = await axios.get(`https://open.larksuite.com/open-apis/bitable/v1/apps/${body.base_id}/tables`, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
-        })
         let taskListName = "empty"
-        if (Array.isArray(tableInfo.data?.items) && tableInfo.data?.items.length > 0) {
-            const foundItem = tableInfo.data?.items.find((i: any) => i.table_id === body.table_id);
+
+        const tableInfo = await getTableInfo(token, body.base_id);
+        if (Array.isArray(tableInfo?.items) && tableInfo?.items.length > 0) {
+            const foundItem = tableInfo?.items.find((i: any) => i.table_id === body.table_id);
             taskListName = foundItem?.name || "empty";
         }
 
         if (data?.length == 0) {
-            const membersRequest = [{
+            const membersRequest: Member[] = [{
                 "id": body.create_by,
                 "role": "viewer",
                 "type": "user"
@@ -57,28 +54,22 @@ export async function POST(request: NextRequest) {
                     "type": "user"
                 })
             }
-            const response = await axios.post("https://open.larksuite.com/open-apis/task/v2/tasklists?user_id_type=union_id", {
+
+            const createdTaskList = await createTaskList(token, {
                 "members": membersRequest,
                 "name": taskListName
-            }, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            })
+            }, "union_id");
 
-            const { guid } = response.data.data.tasklist;
-            const sectionName = body.phase
-            const { data: sectionInfo } = await axios.post("https://open.larksuite.com/open-apis/task/v2/sections", {
+            const { guid } = createdTaskList;
+            const sectionName = body.phase;
+
+            const sectionInfo = await createSection(token, {
                 "name": sectionName,
                 "resource_type": "tasklist",
-                "resource_id": guid
-            }, {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
+                "resource_id": createdTaskList.guid,
             })
 
-            sectionId = sectionInfo.data.section.guid;
+            sectionId = sectionInfo.guid;
 
             const { error: insertErr } = await supabase
                 .from("tasklist-mapping")
@@ -98,23 +89,19 @@ export async function POST(request: NextRequest) {
                 throw new Error(`Failed to insert tasklist mapping: ${insertErr.message}`);
             }
             taskListId = guid;
+
         } else {
             taskListId = data?.[0]?.tasklist_id ?? ""
             const filteredSection = data?.filter((i: any) => i.section_name === body.phase);
             if (Array.isArray(filteredSection) && filteredSection.length > 0) {
                 sectionId = filteredSection[0].section_id;
             } else {
-                const { data: sectionInfo } = await axios.post("https://open.larksuite.com/open-apis/task/v2/sections", {
+                const sectionInfo = await createSection(token, {
                     "name": body.phase,
                     "resource_type": "tasklist",
                     "resource_id": taskListId
-                }, {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
                 })
-
-                sectionId = sectionInfo.data.section.guid;
+                sectionId = sectionInfo.guid;
 
                 const { error: insertErr } = await supabase
                     .from("tasklist-mapping")
@@ -131,17 +118,17 @@ export async function POST(request: NextRequest) {
                 if (insertErr) {
                     console.error('Supabase insert error:', insertErr);
                     throw new Error(`Failed to insert tasklist mapping: ${insertErr.message}`);
-                }    
+                }
             }
         }
 
         const completedAt = body.status.toLowerCase() === "done" || body.status.toLowerCase() === "completed" ? (new Date()).valueOf().toString() : "0"
-        const createdTaskResponse = await axios.post("https://open.larksuite.com/open-apis/task/v2/tasks?user_id_type=union_id", {
+        const createdTask = await createTask(token, {
             "summary": body.title !== "" ? body.title : " ",
             "completed_at": completedAt,
             "description": body.description !== "" ? body.description : " ",
             "due": {
-                "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf(),
+                "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf().toString(),
                 "is_all_day": false
             },
             "members": [
@@ -163,18 +150,9 @@ export async function POST(request: NextRequest) {
                 }
             ],
             "start": {
-                "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf(),
+                "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf().toString(),
                 "is_all_day": false
             },
-            "reminders": [
-                {
-                    "relative_fire_minute": 30
-                }
-            ]
-        }, {
-            headers: {
-                Authorization: `Bearer ${token}`
-            }
         })
 
         const { error: insertErr } = await supabase
@@ -184,7 +162,7 @@ export async function POST(request: NextRequest) {
                     table_id: body.table_id,
                     base_id: body.base_id,
                     record_id: body.record_id,
-                    task_id: createdTaskResponse.data.data.task.guid ?? "",
+                    task_id: createdTask.guid ?? "",
                 }
             );
 
@@ -194,22 +172,16 @@ export async function POST(request: NextRequest) {
         }
 
         if (body.owner !== "") {
-            await axios.post(`https://open.larksuite.com/open-apis/task/v2/tasklists/${taskListId}/add_members?user_id_type=union_id`, {
-                members: [
-                    {
-                        "id": body.owner,
-                        "role": "viewer",
-                        "type": "user"
-                    }
-                ]
-            }, {
-                headers: {
-                    Authorization: `Bearer ${token}`
+            await addMemberToTaskList(token, taskListId, [
+                {
+                    "id": body.owner,
+                    "role": "viewer",
+                    "type": "user"
                 }
-            })
+            ])
         }
 
-        const nextResponse = NextResponse.json(createdTaskResponse.data, { status: createdTaskResponse.status });
+        const nextResponse = NextResponse.json({}, { status: 200 });
         return nextResponse;
     } catch (e) {
         return handleError(e);
