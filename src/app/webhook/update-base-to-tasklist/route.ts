@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from "next/server";
-import axios from "axios";
 import { getTenantAccessToken, handleError } from '@/lib/backend-helper';
 import { getSupabaseServiceClient } from "@/lib/database";
 import { addMemberToTask, addMemberToTaskList, createSection, createTask, createTaskList, getTableInfo, getTaskInfo, removeMemberToTask, updateTask } from "@/lib/lark-helper";

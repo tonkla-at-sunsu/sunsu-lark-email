@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantAccessToken, handleError } from '@/lib/backend-helper';
 import { getSupabaseServiceClient } from "@/lib/database";
-import { addMemberToTask, addMemberToTaskList, createSection, createTask, createTaskList, getTableInfo } from "@/lib/lark-helper";
+import { addMemberToTaskList, createSection, createTask, createTaskList, getTableInfo } from "@/lib/lark-helper";
 import { Member } from "@/types/lark";
 
 interface WebhookRequest {
