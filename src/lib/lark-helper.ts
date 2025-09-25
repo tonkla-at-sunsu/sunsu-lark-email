@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { CreateSectionRequest, CreateTaskListRequest, CreateTaskPayload, Member, SectionInfo, TableInfo, TaskInfo, TaskListInfo, UpdateTaskPayload } from "@/types/lark";
 import axios from "axios"
 
@@ -109,4 +110,51 @@ export const getTaskInfo = async (token: string, taskId: string): Promise<TaskIn
     })
 
     return data.data.task;
+}
+
+export const createCustomFieldToTaskList = async (token: string, taskListId: string) => {
+    const { data } = await axios.post(`https://open.larksuite.com/open-apis/task/v2/custom_fields`, {
+        "resource_type": "tasklist",
+        "resource_id": taskListId,
+        "name": "status",
+        "type": "single_select",
+        "single_select_setting": {
+            "options": [
+                {
+                    "name": "Not yet started",
+                    "color_index": 52,
+                    "is_hidden": false
+                },
+                {
+                    "name": "Ongoing",
+                    "color_index": 11,
+                    "is_hidden": false
+                },
+                {
+                    "name": "Completed",
+                    "color_index": 20,
+                    "is_hidden": false
+                },
+                {
+                    "name": "Stelled",
+                    "color_index": 52,
+                    "is_hidden": false
+                }
+            ]
+        }
+    }, {
+        headers: {
+            Authorization: `Bearer ${token}`
+        }
+    })
+
+    return {
+        "guid": data.data.custom_field.guid,
+        "not_started_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Not yet started").guid ?? "",
+        "on_going_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Ongoing").guid ?? "",
+        "completed_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Not yet started").guid ?? "",
+        "stalled_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Not yet started").guid ?? "",
+    }
+
+    return data.data.custom_field.guid;
 }

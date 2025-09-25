@@ -63,14 +63,20 @@ export interface Timestamp {
     is_all_day: boolean;
 }
 
+export interface CreateTaskCustomFields {
+    guid: string;
+    single_select_value: string;
+}
+
 export interface CreateTaskPayload {
     summary: string;
-    completed_at: string;
+    completed_at?: string;
     description: string;
     members: Member[];
     start: Timestamp
     due: Timestamp;
     tasklists: TaskInfoTasklist[];
+    custom_fields: CreateTaskCustomFields[];
 }
 
 export interface UpdateTaskPayload {
@@ -79,6 +85,7 @@ export interface UpdateTaskPayload {
     start: Timestamp
     due: Timestamp;
     completed_at?: string;
+    custom_fields: CreateTaskCustomFields[];
 }
 
 
