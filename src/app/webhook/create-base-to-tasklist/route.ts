@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
             "Not yet started": "",
             "Ongoing": "",
             "Completed": "",
-            "Stelled": ""
+            "Stalled": ""
         }
 
         const tableInfo = await getTableInfo(token, body.base_id);
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
                         section_name: sectionName,
                         custom_field_id: customField.guid,
                         not_started_id: customField.not_started_id,
-                        on_going_id: customField.not_started_id,
+                        on_going_id: customField.on_going_id,
                         completed_id: customField.completed_id,
                         stalled_id: customField.stalled_id,
                     }
@@ -100,9 +100,9 @@ export async function POST(request: NextRequest) {
             customFieldId = customField.guid;
             optionMapping = {
                 "Not yet started": customField.not_started_id,
-                "Ongoing": customField.not_started_id,
+                "Ongoing": customField.on_going_id,
                 "Completed": customField.completed_id,
-                "Stelled": customField.stalled_id
+                "Stalled": customField.stalled_id
             };
 
             if (insertErr) {
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
                 "Not yet started": data?.[0].not_started_id,
                 "Ongoing": data?.[0].on_going_id,
                 "Completed": data?.[0].completed_id,
-                "Stelled": data?.[0].stalled_id,
+                "Stalled": data?.[0].stalled_id,
             }
 
             const filteredSection = data?.filter((i: any) => i.section_name === body.phase);

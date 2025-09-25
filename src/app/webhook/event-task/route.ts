@@ -61,7 +61,6 @@ export async function POST(request: NextRequest) {
         await axios.put(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/${recordId}`,
             {
                 fields: { 
-                    "Status": task.status === "todo" ? "Not yet started" : "Completed",
                     "Due Date": task.status === "todo" ? null : new Date().valueOf(),
                 }
             },

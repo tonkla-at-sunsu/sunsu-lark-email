@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
             "Not yet started": "",
             "Ongoing": "",
             "Completed": "",
-            "Stelled": ""
+            "Stalled": ""
         }
 
         const { data } = await supabase.from('task-mapping')
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
                             section_name: sectionName,
                             custom_field_id: customField.guid,
                             not_started_id: customField.not_started_id,
-                            on_going_id: customField.not_started_id,
+                            on_going_id: customField.on_going_id,
                             completed_id: customField.completed_id,
                             stalled_id: customField.stalled_id,
                         }
@@ -116,9 +116,9 @@ export async function POST(request: NextRequest) {
                 customFieldId = customField.guid;
                 optionMapping = {
                     "Not yet started": customField.not_started_id,
-                    "Ongoing": customField.not_started_id,
+                    "Ongoing": customField.on_going_id,
                     "Completed": customField.completed_id,
-                    "Stelled": customField.stalled_id
+                    "Stalled": customField.stalled_id
                 };
             } else {
                 const filteredSection = data?.filter((i: any) => i.section_name === body.phase);
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
                         "Not yet started": data?.[0].not_started_id,
                         "Ongoing": data?.[0].on_going_id,
                         "Completed": data?.[0].completed_id,
-                        "Stelled": data?.[0].stalled_id,
+                        "Stalled": data?.[0].stalled_id,
                     }
                     if (insertErr) {
                         console.error('Supabase insert error:', insertErr);
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
                 "Not yet started": tasklistMapping?.[0].not_started_id,
                 "Ongoing": tasklistMapping?.[0].on_going_id,
                 "Completed": tasklistMapping?.[0].completed_id,
-                "Stelled": tasklistMapping?.[0].stalled_id,
+                "Stalled": tasklistMapping?.[0].stalled_id,
             }
             customFieldId = tasklistMapping?.[0].custom_field_id;
 
@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
                     "guid": customFieldId,
                     "single_select_value": statusId
                 }],
-            }, ["summary", "description", "start", "due"])
+            }, ["summary", "description", "start", "due", "custom_fields"])
 
             if (body.owner !== "") {
                 const taskListId = taskDetail.tasklists[0].tasklist_guid;

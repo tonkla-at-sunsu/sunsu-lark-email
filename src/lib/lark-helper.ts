@@ -136,7 +136,7 @@ export const createCustomFieldToTaskList = async (token: string, taskListId: str
                     "is_hidden": false
                 },
                 {
-                    "name": "Stelled",
+                    "name": "Stalled",
                     "color_index": 52,
                     "is_hidden": false
                 }
@@ -152,9 +152,7 @@ export const createCustomFieldToTaskList = async (token: string, taskListId: str
         "guid": data.data.custom_field.guid,
         "not_started_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Not yet started").guid ?? "",
         "on_going_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Ongoing").guid ?? "",
-        "completed_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Not yet started").guid ?? "",
-        "stalled_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Not yet started").guid ?? "",
+        "completed_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Completed").guid ?? "",
+        "stalled_id": data.data.custom_field.single_select_setting.options.find((option: any) => option.name === "Stalled").guid ?? "",
     }
-
-    return data.data.custom_field.guid;
 }
