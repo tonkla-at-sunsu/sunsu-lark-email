@@ -122,6 +122,15 @@ export async function POST(request: NextRequest) {
                 };
             } else {
                 const filteredSection = data?.filter((i: any) => i.section_name === body.phase);
+                taskListId = data?.[0]?.tasklist_id ?? ""
+
+                customFieldId = data?.[0].custom_field_id;
+                optionMapping = {
+                    "Not yet started": data?.[0].not_started_id,
+                    "Ongoing": data?.[0].on_going_id,
+                    "Completed": data?.[0].completed_id,
+                    "Stalled": data?.[0].stalled_id,
+                }
 
                 if (Array.isArray(filteredSection) && filteredSection.length > 0) {
                     sectionId = filteredSection[0].section_id;
@@ -150,15 +159,6 @@ export async function POST(request: NextRequest) {
                                 stalled_id: data?.[0].stalled_id,
                             }
                         );
-
-                    taskListId = data?.[0]?.tasklist_id ?? ""
-                    customFieldId = data?.[0].custom_field_id;
-                    optionMapping = {
-                        "Not yet started": data?.[0].not_started_id,
-                        "Ongoing": data?.[0].on_going_id,
-                        "Completed": data?.[0].completed_id,
-                        "Stalled": data?.[0].stalled_id,
-                    }
                     if (insertErr) {
                         console.error('Supabase insert error:', insertErr);
                         throw new Error(`Failed to insert tasklist mapping: ${insertErr.message}`);
