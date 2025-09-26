@@ -254,7 +254,6 @@ export async function POST(request: NextRequest) {
 
             const payload: UpdateTaskPayload = {
                 "summary": body.title !== "" ? body.title : " ",
-                "completed_at": "0",
                 "description": body.description !== "" ? body.description : " ",
                 "start": {
                     "timestamp": body.start_time !== "" ? body.start_time : new Date().setHours(0, 0, 0, 0).valueOf().toString(),
@@ -272,15 +271,13 @@ export async function POST(request: NextRequest) {
 
             const updatedField = ["summary", "description", "start", "due", "custom_fields"]
 
-            if (status.toLocaleLowerCase() === "completed" && taskDetail.completed_at === "0") {
-                payload.completed_at = taskDetail.due.timestamp;
-                updatedField.push("completed_at");
-            } else if (status.toLocaleLowerCase() !== "completed" && taskDetail.completed_at !== "0") {
+            if (status.toLocaleLowerCase() !== "completed" && taskDetail.completed_at !== "0") {
                 payload.completed_at = "0";
                 updatedField.push("completed_at");
             }
 
             await updateTask(token, taskId, payload, updatedField)
+
             if (body.owner !== "") {
                 if (Array.isArray(taskDetail.members)) {
                     const ownerFiltered = taskDetail.members.filter((m: Member) => m.role == "assignee")

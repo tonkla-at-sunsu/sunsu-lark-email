@@ -85,7 +85,7 @@ export interface UpdateTaskPayload {
     start?: Timestamp
     due?: Timestamp;
     completed_at?: string;
-    custom_fields: CreateTaskCustomFields[];
+    custom_fields?: CreateTaskCustomFields[];
 }
 
 
