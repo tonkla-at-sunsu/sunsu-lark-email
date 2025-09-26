@@ -71,7 +71,10 @@ export async function POST(request: NextRequest) {
             "Stalled": tasklistMapping?.[0].stalled_id,
         }
 
-        const statusKey = Object.keys(optionMapping).find(key => optionMapping[key as keyof typeof optionMapping] === taskStatusId);
+        let statusKey = Object.keys(optionMapping).find(key => optionMapping[key as keyof typeof optionMapping] === taskStatusId);
+        if (task.status !== "todo") {
+            statusKey = "Completed"
+        }
 
         await axios.put(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/${recordId}`,
             {
