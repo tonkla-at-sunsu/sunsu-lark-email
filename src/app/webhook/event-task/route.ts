@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
         })
 
         const { task } = responseTaskDetail.data.data;
-
         const { data } = await supabase.from('task-mapping')
             .select()
             .eq('task_id', body.event.task_id)
@@ -56,12 +55,29 @@ export async function POST(request: NextRequest) {
         }
 
         const { base_id: appId, table_id: tableId, record_id: recordId } = data[0]
+        const tasklistId = task.tasklists[0].tasklist_guid;
+        const taskStatusId = task.custom_fields[0].single_select_value;
 
+        const { data: tasklistMapping } = await supabase.from('tasklist-mapping')
+            .select()
+            .eq('table_id', tableId)
+            .eq('base_id', appId)
+            .eq('tasklist_id', tasklistId)
+
+        const optionMapping = {
+            "Not yet started": tasklistMapping?.[0].not_started_id,
+            "Ongoing": tasklistMapping?.[0].on_going_id,
+            "Completed": tasklistMapping?.[0].completed_id,
+            "Stalled": tasklistMapping?.[0].stalled_id,
+        }
+
+        const statusKey = Object.keys(optionMapping).find(key => optionMapping[key as keyof typeof optionMapping] === taskStatusId);
 
         await axios.put(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/${recordId}`,
             {
-                fields: { 
+                fields: {
                     "Due Date": task.status === "todo" ? null : new Date().valueOf(),
+                    "Status": statusKey
                 }
             },
             {
