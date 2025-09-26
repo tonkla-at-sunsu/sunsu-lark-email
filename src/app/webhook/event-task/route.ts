@@ -60,6 +60,20 @@ export async function POST(request: NextRequest) {
         const tasklistId = task.tasklists[0].tasklist_guid;
         const taskStatusId = task.custom_fields[0].single_select_value;
 
+        const { data: recordDetail } = await axios.post(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/batch_get`, {
+            "record_ids": [
+                recordId
+            ],
+            "user_id_type": "open_id",
+            "automatic_fields": true
+        },
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`
+                }
+            })
+        const recordStatus = recordDetail.data.records[0].fields.Status;
+
         const { data: tasklistMapping } = await supabase.from('tasklist-mapping')
             .select()
             .eq('table_id', tableId)
@@ -78,7 +92,7 @@ export async function POST(request: NextRequest) {
             statusKey = "Completed"
         }
 
-        if (!statusKey) {
+        if(!statusKey || (recordStatus === "Completed" && task.status == "todo")) {
             statusKey = "Not yet started";
         }
 
