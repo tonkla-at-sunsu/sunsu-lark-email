@@ -252,25 +252,6 @@ export async function POST(request: NextRequest) {
             const status = body.status === "" ? "Not yet started" : body.status;
             const statusId = optionMapping[status];
 
-            if (body.owner !== "") {
-                if (Array.isArray(taskDetail.members)) {
-                    const ownerFiltered = taskDetail.members.filter((m: Member) => m.role == "assignee")
-                    if (Array.isArray(ownerFiltered) && ownerFiltered.length > 0) {
-                        await removeMemberToTask(token, taskId, [{
-                            "id": taskDetail.members.filter((m: Member) => m.role == "assignee")[0].id,
-                            "role": "assignee",
-                            "type": "user"
-                        }])
-                    }
-                }
-
-                await addMemberToTask(token, taskId, [{
-                    "id": body.owner,
-                    "role": "assignee",
-                    "type": "user"
-                }])
-            }
-
             const payload: UpdateTaskPayload = {
                 "summary": body.title !== "" ? body.title : " ",
                 "completed_at": "0",
@@ -289,10 +270,10 @@ export async function POST(request: NextRequest) {
                 }],
             }
 
-            const updatedField = ["summary", "description", "start", "due", "custom_fields", "completed_at"]
+            const updatedField = ["summary", "description", "start", "due", "custom_fields"]
 
             if (status.toLocaleLowerCase() === "completed" && taskDetail.completed_at === "0") {
-                payload.completed_at = new Date().setHours(0, 0, 0, 0).valueOf().toString();
+                payload.completed_at = taskDetail.due.timestamp;
                 updatedField.push("completed_at");
             } else if (status.toLocaleLowerCase() !== "completed" && taskDetail.completed_at !== "0") {
                 payload.completed_at = "0";
@@ -300,8 +281,24 @@ export async function POST(request: NextRequest) {
             }
 
             await updateTask(token, taskId, payload, updatedField)
-
             if (body.owner !== "") {
+                if (Array.isArray(taskDetail.members)) {
+                    const ownerFiltered = taskDetail.members.filter((m: Member) => m.role == "assignee")
+                    if (Array.isArray(ownerFiltered) && ownerFiltered.length > 0) {
+                        await removeMemberToTask(token, taskId, [{
+                            "id": taskDetail.members.filter((m: Member) => m.role == "assignee")[0].id,
+                            "role": "assignee",
+                            "type": "user"
+                        }])
+                    }
+                }
+
+                await addMemberToTask(token, taskId, [{
+                    "id": body.owner,
+                    "role": "assignee",
+                    "type": "user"
+                }])
+
                 const taskListId = taskDetail.tasklists[0].tasklist_guid;
                 await addMemberToTaskList(token, taskListId, [{
                     "id": body.owner,

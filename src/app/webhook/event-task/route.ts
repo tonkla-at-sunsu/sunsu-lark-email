@@ -3,6 +3,7 @@ import axios from "axios";
 import { getTenantAccessToken, handleError } from '@/lib/backend-helper';
 import { getSupabaseServiceClient } from "@/lib/database";
 import { updateTask } from "@/lib/lark-helper";
+import { SupabaseClient } from '@supabase/supabase-js';
 
 interface Event {
     event_type: string;
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
         }
 
         const token = await getTenantAccessToken();
-        const supabase = getSupabaseServiceClient();
+        const supabase: SupabaseClient = getSupabaseServiceClient();
 
         const responseTaskDetail = await axios.get(`https://open.larksuite.com/open-apis/task/v2/tasks/${body.event.task_id}`, {
             headers: {
