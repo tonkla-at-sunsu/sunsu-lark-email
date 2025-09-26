@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         await axios.put(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/${recordId}`,
             {
                 fields: {
-                    "Due Date": task.status === "todo" ? null : new Date().setHours(0, 0, 0, 0).valueOf().toString(),
+                    "Due Date": task.status === "todo" ? null : new Date().valueOf(),
                     "Status": statusKey
                 }
             },
@@ -90,9 +90,7 @@ export async function POST(request: NextRequest) {
             }
         )
 
-        const nextResponse = NextResponse.json({
-            challenge: body.challenge
-        }, { status: 200 });
+        const nextResponse = NextResponse.json({ }, { status: 200 });
         return nextResponse;
     } catch (e) {
         return handleError(e);
