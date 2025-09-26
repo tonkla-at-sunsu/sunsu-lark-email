@@ -158,8 +158,8 @@ export async function POST(request: NextRequest) {
                         data.Status = "Not yet started"
                     }
                     const completedAt = data.Status.toLowerCase() === "done" || data.Status.toLowerCase() === "completed" ? (new Date()).valueOf().toString() : "0"
-                    const starttime = data["Start Date"] ? Number(data["Start Date"]).toString() : new Date().valueOf().toString();
-                    let endtime = data["Estimate Deadline"] ? Number(data["Estimate Deadline"]).toString() : new Date().valueOf().toString();
+                    const starttime = data["Start Date"] ? Number(data["Start Date"]).toString() : new Date().setHours(0, 0, 0, 0).valueOf().toString();
+                    let endtime = data["Estimate Deadline"] ? Number(data["Estimate Deadline"]).toString() : new Date().setHours(0, 0, 0, 0).valueOf().toString();
 
                     if (Number(starttime) > Number(endtime)) {
                         endtime = starttime;

@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         await axios.put(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/${recordId}`,
             {
                 fields: {
-                    "Due Date": task.status === "todo" ? null : new Date().valueOf(),
+                    "Due Date": task.status === "todo" ? null : new Date().setHours(0, 0, 0, 0).valueOf().toString(),
                     "Status": statusKey
                 }
             },

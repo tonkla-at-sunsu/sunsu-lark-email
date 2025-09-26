@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantAccessToken, handleError } from '@/lib/backend-helper';
 import { getSupabaseServiceClient } from "@/lib/database";
 import { addMemberToTask, addMemberToTaskList, createCustomFieldToTaskList, createSection, createTask, createTaskList, getTableInfo, getTaskInfo, removeMemberToTask, updateTask } from "@/lib/lark-helper";
-import { Member } from "@/types/lark";
+import { Member, UpdateTaskPayload } from "@/types/lark";
 
 interface WebhookRequest {
     table_id: string;
@@ -174,11 +174,11 @@ export async function POST(request: NextRequest) {
                 "completed_at": "0",
                 "description": body.description !== "" ? body.description : " ",
                 "start": {
-                    "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf().toString(),
+                    "timestamp": body.start_time !== "" ? body.start_time : new Date().setHours(0, 0, 0, 0).valueOf().toString(),
                     "is_all_day": false
                 },
                 "due": {
-                    "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf().toString(),
+                    "timestamp": body.start_time !== "" ? body.start_time : new Date().setHours(23, 59, 0, 0).valueOf().toString(),
                     "is_all_day": false
                 },
                 "members": [
@@ -271,22 +271,34 @@ export async function POST(request: NextRequest) {
                 }])
             }
 
-            await updateTask(token, taskId, {
+            const payload: UpdateTaskPayload = {
                 "summary": body.title !== "" ? body.title : " ",
                 "description": body.description !== "" ? body.description : " ",
                 "start": {
-                    "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf().toString(),
+                    "timestamp": body.start_time !== "" ? body.start_time : new Date().setHours(0, 0, 0, 0).valueOf().toString(),
                     "is_all_day": false
                 },
                 "due": {
-                    "timestamp": body.end_time !== "" ? body.end_time : new Date().valueOf().toString(),
+                    "timestamp": body.end_time !== "" ? body.end_time : new Date().setHours(0, 0, 0, 0).valueOf().toString(),
                     "is_all_day": false
                 },
                 "custom_fields": [{
                     "guid": customFieldId,
                     "single_select_value": statusId
                 }],
-            }, ["summary", "description", "start", "due", "custom_fields"])
+            }
+
+            const updatedField = ["summary", "description", "start", "due", "custom_fields"]
+
+            if (status.toLocaleLowerCase() === "completed" && taskDetail.completed_at === "0") {
+                payload.completed_at = new Date().setHours(0, 0, 0, 0).valueOf().toString();
+                updatedField.push("completed_at");
+            } else if (status.toLocaleLowerCase() !== "completed" && taskDetail.completed_at !== "0") {
+                payload.completed_at = "0";
+                updatedField.push("completed_at");
+            }
+
+            await updateTask(token, taskId, payload, updatedField)
 
             if (body.owner !== "") {
                 const taskListId = taskDetail.tasklists[0].tasklist_guid;

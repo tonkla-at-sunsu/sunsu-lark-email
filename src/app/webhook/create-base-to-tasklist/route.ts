@@ -163,11 +163,11 @@ export async function POST(request: NextRequest) {
             "summary": body.title !== "" ? body.title : " ",
             "description": body.description !== "" ? body.description : " ",
             "start": {
-                "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf().toString(),
+                "timestamp": body.start_time !== "" ? body.start_time : new Date().setHours(0, 0, 0, 0).valueOf().toString(),
                 "is_all_day": false
             },
             "due": {
-                "timestamp": body.start_time !== "" ? body.start_time : new Date().valueOf().toString(),
+                "timestamp": body.start_time !== "" ? body.start_time : new Date().setHours(23, 59, 0, 0).valueOf().toString(),
                 "is_all_day": false
             },
             completed_at: "0",
