@@ -80,10 +80,10 @@ export interface CreateTaskPayload {
 }
 
 export interface UpdateTaskPayload {
-    summary: string;
-    description: string;
-    start: Timestamp
-    due: Timestamp;
+    summary?: string;
+    description?: string;
+    start?: Timestamp
+    due?: Timestamp;
     completed_at?: string;
     custom_fields: CreateTaskCustomFields[];
 }

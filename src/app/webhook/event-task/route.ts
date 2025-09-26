@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { getTenantAccessToken, handleError } from '@/lib/backend-helper';
 import { getSupabaseServiceClient } from "@/lib/database";
+import { updateTask } from "@/lib/lark-helper";
 
 interface Event {
     event_type: string;
@@ -76,6 +77,10 @@ export async function POST(request: NextRequest) {
             statusKey = "Completed"
         }
 
+        if (!statusKey) {
+            statusKey = "Not yet started";
+        }
+
         await axios.put(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/${recordId}`,
             {
                 fields: {
@@ -90,7 +95,14 @@ export async function POST(request: NextRequest) {
             }
         )
 
-        const nextResponse = NextResponse.json({ }, { status: 200 });
+        await updateTask(token, body.event.task_id, {
+            "custom_fields": [{
+                "guid": tasklistMapping?.[0].custom_field_id,
+                "single_select_value": optionMapping[statusKey as keyof typeof optionMapping]
+            }]
+        }, ["custom_fields"])
+
+        const nextResponse = NextResponse.json({}, { status: 200 });
         return nextResponse;
     } catch (e) {
         return handleError(e);
