@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { getTenantAccessToken, handleError } from '@/lib/backend-helper';
 import { getSupabaseServiceClient } from "@/lib/database";
+import { createCustomFieldToTaskList, createSection, createTaskList } from "@/lib/lark-helper";
 
 interface WebhookRequest {
     app_id: string;
@@ -24,6 +25,13 @@ export async function POST(request: NextRequest) {
         const sectionItem = tableInfo.data.items;
         if (Array.isArray(sectionItem) && sectionItem.length > 0) {
             const table = tableInfo.data?.items.find((i: any) => i.table_id === body.table_id);
+            let customFieldId = ""
+            let optionMapping: Record<string, string> = {
+                "Not yet started": "",
+                "Ongoing": "",
+                "Completed": "",
+                "Stalled": ""
+            }
 
             const { data: recordInfo } = await axios.post(`https://open.larksuite.com/open-apis/bitable/v1/apps/${body.app_id}/tables/${body.table_id}/records/search`, {
                 "filter": {
@@ -62,31 +70,24 @@ export async function POST(request: NextRequest) {
 
                 if (tasklistInfo?.length == 0) {
                     // no existing tasklist -> create
-                    const { data: createdTasklist } = await axios.post("https://open.larksuite.com/open-apis/task/v2/tasklists?user_id_type=open_id", {
+                    const createdTasklist = await createTaskList(token, {
                         "members": [{
                             "id": data.PIC[0].id,
                             "role": "viewer",
                             "type": "user"
                         }],
                         "name": taskListName
-                    }, {
-                        headers: {
-                            Authorization: `Bearer ${token}`
-                        }
-                    })
-                    tasklistId = createdTasklist.data.tasklist.guid;
+                    }, "open_id");
+                    tasklistId = createdTasklist.guid;
 
-                    const { data: sectionInfo } = await axios.post("https://open.larksuite.com/open-apis/task/v2/sections", {
+                    const customField = await createCustomFieldToTaskList(token, tasklistId);
+                    const sectionInfo = await createSection(token, {
                         "name": sectionName,
                         "resource_type": "tasklist",
-                        "resource_id": tasklistId
-                    }, {
-                        headers: {
-                            Authorization: `Bearer ${token}`
-                        }
+                        "resource_id": createdTasklist.guid,
                     })
 
-                    sectionId = sectionInfo.data.section.guid;
+                    sectionId = sectionInfo.guid;
 
                     const { error: insertErr } = await supabase
                         .from("tasklist-mapping")
@@ -98,8 +99,22 @@ export async function POST(request: NextRequest) {
                                 tasklist_name: taskListName,
                                 section_id: sectionId,
                                 section_name: sectionName,
+                                custom_field_id: customField.guid,
+                                not_started_id: customField.not_started_id,
+                                on_going_id: customField.on_going_id,
+                                completed_id: customField.completed_id,
+                                stalled_id: customField.stalled_id,
                             }
                         );
+
+                    customFieldId = customField.guid;
+                    optionMapping = {
+                        "Not yet started": customField.not_started_id,
+                        "Ongoing": customField.on_going_id,
+                        "Completed": customField.completed_id,
+                        "Stalled": customField.stalled_id
+                    };
+
                     if (insertErr) {
                         console.error('Supabase insert error:', insertErr);
                         throw new Error(`Failed to insert tasklist mapping: ${insertErr.message}`);
@@ -109,6 +124,14 @@ export async function POST(request: NextRequest) {
                     tasklistId = tasklistInfo?.[0].tasklist_id;
 
                     const filteredSection = tasklistInfo?.filter((i: any) => i.section_name === sectionName);
+
+                    customFieldId = tasklistInfo?.[0].custom_field_id;
+                    optionMapping = {
+                        "Not yet started": tasklistInfo?.[0].not_started_id,
+                        "Ongoing": tasklistInfo?.[0].on_going_id,
+                        "Completed": tasklistInfo?.[0].completed_id,
+                        "Stalled": tasklistInfo?.[0].stalled_id
+                    };
 
                     // find existing section
                     if (Array.isArray(filteredSection) && filteredSection.length > 0) {
@@ -138,6 +161,11 @@ export async function POST(request: NextRequest) {
                                     tasklist_name: taskListName,
                                     section_id: sectionId,
                                     section_name: sectionName,
+                                    custom_field_id: tasklistInfo?.[0].custom_field_id,
+                                    not_started_id: tasklistInfo?.[0].not_started_id,
+                                    on_going_id: tasklistInfo?.[0].on_going_id,
+                                    completed_id: tasklistInfo?.[0].completed_id,
+                                    stalled_id: tasklistInfo?.[0].stalled_id,
                                 }
                             );
                         if (insertErr) {
@@ -157,6 +185,9 @@ export async function POST(request: NextRequest) {
                     if (!data.Status) {
                         data.Status = "Not yet started"
                     }
+
+                    const statusId = optionMapping[data.Status];
+
                     const completedAt = data.Status.toLowerCase() === "done" || data.Status.toLowerCase() === "completed" ? (new Date()).valueOf().toString() : "0"
                     const starttime = data["Start Date"] ? Number(data["Start Date"]).toString() : new Date().setHours(0, 0, 0, 0).valueOf().toString();
                     let endtime = data["Estimate Deadline"] ? Number(data["Estimate Deadline"]).toString() : new Date().setHours(0, 0, 0, 0).valueOf().toString();
@@ -168,6 +199,10 @@ export async function POST(request: NextRequest) {
                         "summary": data?.Process?.[0]?.text ? data?.Process?.[0]?.text : " ",
                         "completed_at": completedAt,
                         "description": data?.Remark?.[0]?.text ? data?.Remark?.[0]?.text : " ",
+                        "custom_fields": [{
+                            "guid": customFieldId,
+                            "single_select_value": statusId
+                        }],
                         "start": {
                             "timestamp": starttime,
                             "is_all_day": false
