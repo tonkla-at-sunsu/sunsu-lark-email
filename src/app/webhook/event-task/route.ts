@@ -92,8 +92,10 @@ export async function POST(request: NextRequest) {
             statusKey = "Completed"
         }
 
-        if(!statusKey || (recordStatus === "Completed" && task.status == "todo")) {
-            statusKey = "Not yet started";
+        if (!statusKey ||
+            (recordStatus === "Completed" && task.status == "todo") ||
+            (body.header.event_type === "task.task.comment.updated_v1" && recordStatus === "Not yet started")) {
+            statusKey = "Ongoing";
         }
 
         await axios.put(`https://open.larksuite.com/open-apis/bitable/v1/apps/${appId}/tables/${tableId}/records/${recordId}`,

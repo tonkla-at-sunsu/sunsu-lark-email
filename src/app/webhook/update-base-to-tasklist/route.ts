@@ -274,6 +274,9 @@ export async function POST(request: NextRequest) {
             if (status.toLocaleLowerCase() !== "completed" && taskDetail.completed_at !== "0") {
                 payload.completed_at = "0";
                 updatedField.push("completed_at");
+            } else if (status.toLocaleLowerCase() === "completed" && taskDetail.completed_at === "0") {
+                payload.completed_at = new Date().setHours(0, 0, 0, 0).valueOf().toString();
+                updatedField.push("completed_at");
             }
 
             await updateTask(token, taskId, payload, updatedField)
