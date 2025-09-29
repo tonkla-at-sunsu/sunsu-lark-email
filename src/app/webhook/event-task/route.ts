@@ -102,6 +102,8 @@ export async function POST(request: NextRequest) {
             {
                 fields: {
                     "Process": task.summary,
+                    "Start Date": typeof task.start === "undefined" ? null : Number(task.start.timestamp),
+                    "Estimate Deadline": typeof task.due === "undefined" ? null : Number(task.due.timestamp),
                     "Remark": task.description,
                     "Due Date": task.status === "todo" ? null : new Date().valueOf(),
                     "Status": statusKey
