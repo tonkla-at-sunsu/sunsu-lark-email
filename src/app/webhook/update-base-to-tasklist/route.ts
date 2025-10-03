@@ -178,7 +178,8 @@ export async function POST(request: NextRequest) {
                     "is_all_day": false
                 },
                 "due": {
-                    "timestamp": body.end_time !== "" ? body.end_time : new Date().setHours(23, 59, 0, 0).valueOf().toString(),
+                    "timestamp": body.end_time !== "" ? body.end_time : 
+                        body.start_time ? body.start_time : new Date().setHours(23, 59, 0, 0).valueOf().toString(),
                     "is_all_day": false
                 },
                 "members": [
