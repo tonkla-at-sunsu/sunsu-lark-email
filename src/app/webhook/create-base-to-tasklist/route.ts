@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
             let insertSuccess = false;
             let retryCount = 0;
-            const maxRetries = 3;
+            const maxRetries = 5;
 
             while (!insertSuccess && retryCount < maxRetries) {
                 try {
@@ -282,7 +282,6 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Validate that we have valid tasklist data
         if (!taskListId || taskListId === "PLACEHOLDER") {
             console.error('Invalid tasklist ID:', taskListId);
             throw new Error('Tasklist ID is invalid or still placeholder');
@@ -293,7 +292,6 @@ export async function POST(request: NextRequest) {
             throw new Error('Custom field ID is invalid or still placeholder');
         }
 
-        // Check if task already exists for this record
         const { data: existingTask } = await supabase.from('task-mapping')
             .select()
             .eq('table_id', body.table_id)
