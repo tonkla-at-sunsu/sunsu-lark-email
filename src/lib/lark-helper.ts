@@ -37,7 +37,7 @@ export const createTask = async (token: string, payload: CreateTaskPayload, user
         ...payload,
         "reminders": [
             {
-                "relative_fire_minute": 30
+                "relative_fire_minute": 60 * 33
             }
         ]
     }
