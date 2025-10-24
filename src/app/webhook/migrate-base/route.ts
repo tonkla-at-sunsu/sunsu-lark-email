@@ -184,7 +184,7 @@ export async function POST(request: NextRequest) {
                             "role": "editor",
                             "type": "user"
                         }
-                    ])
+                    ], "open_id")
                 }
 
                 const { data: taskInfo } = await supabase.from('task-mapping')
