@@ -222,15 +222,6 @@ export async function POST(request: NextRequest) {
                 throw new Error(`Failed to insert tasklist mapping: ${insertErr.message}`);
             }
 
-            if (body.owner !== "") {
-                await addMemberToTaskList(token, taskListId, [
-                    {
-                        "id": body.owner,
-                        "role": "viewer",
-                        "type": "user"
-                    },
-                ])
-            }
             if (body.create_by !== "") {
                 await addMemberToTaskList(token, taskListId, [
                     {
@@ -240,6 +231,15 @@ export async function POST(request: NextRequest) {
                     },
                 ])
             }
+            if (body.owner !== "") {
+                await addMemberToTaskList(token, taskListId, [
+                    {
+                        "id": body.owner,
+                        "role": "viewer",
+                        "type": "user"
+                    },
+                ])
+            }      
         } else {
             const taskId = data?.[0].task_id;
             const taskDetail = await getTaskInfo(token, taskId);
