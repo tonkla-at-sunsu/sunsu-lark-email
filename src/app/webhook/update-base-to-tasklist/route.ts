@@ -310,11 +310,25 @@ export async function POST(request: NextRequest) {
                 }])
 
                 const taskListId = taskDetail.tasklists[0].tasklist_guid;
-                await addMemberToTaskList(token, taskListId, [{
-                    "id": body.owner,
-                    "role": "viewer",
-                    "type": "user"
-                }])
+
+                if (body.create_by !== "") {
+                    await addMemberToTaskList(token, taskListId, [
+                        {
+                            "id": body.create_by,
+                            "role": "editor",
+                            "type": "user"
+                        }
+                    ])
+                }
+                if (body.owner !== "") {
+                    await addMemberToTaskList(token, taskListId, [
+                        {
+                            "id": body.owner,
+                            "role": "viewer",
+                            "type": "user"
+                        }
+                    ])
+                }
             }
         }
 
