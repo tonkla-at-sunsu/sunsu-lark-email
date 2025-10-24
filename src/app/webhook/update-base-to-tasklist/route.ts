@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
                 if (body.create_by !== body.owner) {
                     membersRequest.push({
                         "id": body.owner,
-                        "role": "viewer",
+                        "role": "editor",
                         "type": "user"
                     })
                 }
