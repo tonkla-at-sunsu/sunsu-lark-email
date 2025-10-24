@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
                     "is_all_day": false
                 },
                 "due": {
-                    "timestamp": body.end_time !== "" ? body.end_time : 
+                    "timestamp": body.end_time !== "" ? body.end_time :
                         body.start_time ? body.start_time : new Date().setHours(23, 59, 0, 0).valueOf().toString(),
                     "is_all_day": false
                 },
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
                         "type": "user"
                     },
                 ])
-            }      
+            }
         } else {
             const taskId = data?.[0].task_id;
             const taskDetail = await getTaskInfo(token, taskId);
@@ -320,7 +320,7 @@ export async function POST(request: NextRequest) {
                         }
                     ])
                 }
-                if (body.owner !== "") {
+                if (body.owner !== "" && body.create_by != body.owner) {
                     await addMemberToTaskList(token, taskListId, [
                         {
                             "id": body.owner,

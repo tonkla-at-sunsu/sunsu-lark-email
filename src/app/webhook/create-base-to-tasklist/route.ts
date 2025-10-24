@@ -395,7 +395,7 @@ export async function POST(request: NextRequest) {
                 },
             ])
         }
-        if (body.owner !== "") {
+        if (body.owner !== "" && body.create_by != body.owner) {
             await addMemberToTaskList(token, taskListId, [
                 {
                     "id": body.owner,

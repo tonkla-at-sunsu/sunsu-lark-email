@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { getTenantAccessToken, handleError } from '@/lib/backend-helper';
 import { getSupabaseServiceClient } from "@/lib/database";
-import { createCustomFieldToTaskList, createSection, createTaskList } from "@/lib/lark-helper";
+import { addMemberToTaskList, createCustomFieldToTaskList, createSection, createTaskList } from "@/lib/lark-helper";
 
 interface WebhookRequest {
     app_id: string;
@@ -67,6 +67,8 @@ export async function POST(request: NextRequest) {
                     .select()
                     .eq('table_id', tableId)
                     .eq('base_id', baseId)
+
+                // data["Created By"][0].id
 
                 if (tasklistInfo?.length == 0) {
                     // no existing tasklist -> create
@@ -173,6 +175,16 @@ export async function POST(request: NextRequest) {
                             throw new Error(`Failed to insert tasklist mapping: ${insertErr.message}`);
                         }
                     }
+                }
+
+                if (data?.["Created By"][0].id) {
+                    await addMemberToTaskList(token, tasklistId, [
+                        {
+                            "id": data["Created By"][0].id,
+                            "role": "editor",
+                            "type": "user"
+                        }
+                    ])
                 }
 
                 const { data: taskInfo } = await supabase.from('task-mapping')
