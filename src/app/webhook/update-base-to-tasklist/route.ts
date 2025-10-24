@@ -228,7 +228,16 @@ export async function POST(request: NextRequest) {
                         "id": body.owner,
                         "role": "viewer",
                         "type": "user"
-                    }
+                    },
+                ])
+            }
+            if (body.create_by !== "") {
+                await addMemberToTaskList(token, taskListId, [
+                    {
+                        "id": body.create_by,
+                        "role": "editor",
+                        "type": "user"
+                    },
                 ])
             }
         } else {

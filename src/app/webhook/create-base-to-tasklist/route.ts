@@ -395,7 +395,15 @@ export async function POST(request: NextRequest) {
                 }
             ])
         }
-
+        if (body.create_by !== "") {
+            await addMemberToTaskList(token, taskListId, [
+                {
+                    "id": body.create_by,
+                    "role": "editor",
+                    "type": "user"
+                },
+            ])
+        }
         const nextResponse = NextResponse.json({}, { status: 200 });
         return nextResponse;
     } catch (e) {
